@@ -55,3 +55,11 @@ class Trajectory:
         with open(path) as output:
             writer = csv.writer(output, lineterminator="\n", delimiter=';')
             writer.writerow(self.list)
+
+    def get_next_point(self, point):
+        index = None
+        for i in range(point+1, len(self.list)):
+            if self.list[i] is not None:
+                index = i
+                break
+        return index
