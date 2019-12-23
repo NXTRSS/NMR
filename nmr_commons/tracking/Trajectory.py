@@ -3,7 +3,9 @@ import copy
 
 
 class Trajectory:
-    """Trajectory class where trajectory is a list of point and each point is a tuple of two points in space"""
+    """Trajectory class where trajectory is a list of points and each point is a tuple of two numbers.
+    This trajectories are in the 2D space"""
+
     ####
     # Constructor
     def __init__(self, items=None, norm_items=None):
@@ -31,12 +33,12 @@ class Trajectory:
 
     def add_points(self, points, start_position=None):
         if start_position is None:
-            self.list = self.list+tuple(points)
+            self.list = self.list + tuple(points)
         else:
-            self.list = self.list[:start_position-1]+points
+            self.list = self.list[:start_position - 1] + points
 
     def return_element(self, position):
-        return self.list[position]          #I'm not sure if this is necessary - getitem doesn't do the same?
+        return self.list[position]  # I'm not sure if this is necessary - getitem doesn't do the same?
 
     def remove_point(self, position):
         self.list[position] = None
@@ -58,8 +60,36 @@ class Trajectory:
 
     def get_next_point(self, point):
         index = None
-        for i in range(point+1, len(self.list)):
+        for i in range(point + 1, len(self.list)):
             if self.list[i] is not None:
                 index = i
                 break
         return index
+
+    def get_distances_old(self):
+        distance = list()
+        for i in range(len(self.list) - 1):
+            if self.list[i] is not None:
+                k = i + 1
+                while k != len(self.list) - 1 and self.list[k] is None:
+                    k += 1
+                if k == len(self.list) - 1 and self.list[k] is None:
+                    return distance
+                else:
+                    for j in range(i, k):
+                        distance.append([(self.list[i][0] - self.list[k][0]) / (k - i),
+                                         (self.list[i][1] - self.list[k][1]) / (k - i)])
+        return distance
+
+    # def get_distances(self):
+    #     distances = [None]*(len(self)-1)
+    #     for i, point in enumerate(self[:-1]):
+    #         if self[i] is not None:
+    #             k = i + 1
+    #             while k != (len(self)-1) and self[k] is None:
+    #                 k += 1
+    #             if k == len(self) - 1 and self[k] is None:
+    #                 return distances
+    #             else:
+    #                 for j in range(i, k):
+    #                     distances[j] =
