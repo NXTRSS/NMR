@@ -1,5 +1,6 @@
 import unittest
 from nmr_commons.tracking.Trajectory import Trajectory
+from nmr_commons.tracking.TrajectoryList import TrajectoryList
 
 
 class TestTrajectoryMethods(unittest.TestCase):
@@ -60,7 +61,7 @@ class TestTrajectoryMethods(unittest.TestCase):
         self.assertEqual(self.trajectory.get_all_x(), [1, 2, None, None, 8, 9])
 
     def test_get_all_x(self):
-        self.assertEqual(self.trajectory.get_all_x(with_None_points=False), [1, 2, 8, 9])
+        self.assertEqual(self.trajectory.get_all_x(with_none_points=False), [1, 2, 8, 9])
 
     def test_get_all_y(self):
         self.assertEqual(self.trajectory.get_all_y(), [1, 2, None, None, 8, 10.5])
@@ -102,6 +103,24 @@ class TestTrajectoryMethods(unittest.TestCase):
 
     def test_get_path_ratio_first_last_dist(self):
         self.assertAlmostEqual(self.trajectory.get_path_ratio()[2], 1.5997, places=4)
+
+class TestTrajectoryListMethods(unittest.TestCase):
+    def setUp(self) -> None:
+        self.trajectory = Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5)])
+        self.trajectory_complement_short = Trajectory([None, None, (3, 3), None, None])
+        self.trajectory_complement_long = Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])
+        self.trajectory_angle = Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2)])
+        self.trajectorylist = TrajectoryList(list_of_trajectory=[self.trajectory,
+                                                                 self.trajectory_complement_long,
+                                                                 self.trajectory_complement_short,
+                                                                 self.trajectory_angle])
+    def test_len_method(self):
+        self.assertEqual(len(self.trajectorylist), 4)
+
+    def test_getitem(self):
+        self.assertEqual(self.trajectorylist[3][4], (4, 2))
+
+
 
 if __name__ == '__main__':
     unittest.main()
