@@ -26,6 +26,9 @@ class Trajectory:
     def __len__(self):
         return len(self.list)
 
+    def __eq__(self, other):
+        return self[:] == other[:]
+
     def get_x(self, position):
         if self[position] is not None:
             return self[position][0]
