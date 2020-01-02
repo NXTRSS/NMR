@@ -119,6 +119,10 @@ class TestTrajectoryListMethods(unittest.TestCase):
                                                                  self.trajectory_complement_short,
                                                                  self.trajectory_complement_long,
                                                                  self.trajectory_angle])
+    def test_normalize_trajecotories_length(self):
+        self.assertEqual([len(trajectory) for trajectory in self.trajectorylist], [7]*4)
+        self.assertEqual(self.trajectorylist.number_of_levels, 7)
+
     def test_len_method(self):
         self.assertEqual(len(self.trajectorylist), 4)
 
@@ -126,27 +130,34 @@ class TestTrajectoryListMethods(unittest.TestCase):
         self.assertEqual(self.trajectorylist[3][4], (4, 2))
 
     def test_getitem_all(self):
-        self.assertEqual(self.trajectorylist[1][:], Trajectory([None, None, (3, 3), None, None])[:])
+        self.assertListEqual(self.trajectorylist[2][:], Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])[:])
 
     def test_mean_of_points(self):
-        self.trajectorylist.min_max()
+        self.trajectorylist.calculate_min_max()
         self.assertEqual(self.trajectorylist.min_x, 1)
         self.assertEqual(self.trajectorylist.max_x, 10)
         self.assertEqual(self.trajectorylist.min_y, 1)
         self.assertEqual(self.trajectorylist.max_y, 13)
 
     def test_mean_of_points(self):
-        self.trajectorylist.mean_of_points()
+        self.trajectorylist.calculate_mean_of_points()
         self.assertAlmostEqual(self.trajectorylist.mean_y, 4.375, places=3)
 
     def test_normalization(self):
-        self.trajectorylist.normalization()
+        self.trajectorylist.normalize()
         self.assertAlmostEqual(self.trajectorylist.norm_list[0][1][0], 0.11, places=2)
         self.assertAlmostEqual(self.trajectorylist.norm_list[0][1][1], 0.083, places=3)
         self.assertAlmostEqual(self.trajectorylist.norm_list[0][2], None, places=3)
         self.assertAlmostEqual(self.trajectorylist.norm_list[0][5][0], 0.89, places=2)
         self.assertAlmostEqual(self.trajectorylist.norm_list[0][5][1], 0.79, places=2)
         self.assertEqual(len(self.trajectorylist.norm_list), 4)
+
+    def test_get_trajectory(self):
+        self.assertEqual(self.trajectorylist.get_trajectory(0)[:],
+                         Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None])[:])
+
+    def test_number_of_spectra_sequence(self):
+        self.assertEqual(self.trajectorylist.get_number_of_spectra_sequence(), 7)
 
 
 
