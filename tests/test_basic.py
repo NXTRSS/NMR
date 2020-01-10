@@ -109,18 +109,20 @@ class TestTrajectoryMethods(unittest.TestCase):
     def test_get_path_ratio_first_last_dist(self):
         self.assertAlmostEqual(self.trajectory.get_path_ratio()[2], 1.5997, places=4)
 
+
 class TestTrajectoryListMethods(unittest.TestCase):
     def setUp(self) -> None:
         self.trajectory = Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5)])
         self.trajectory_complement_short = Trajectory([None, None, (3, 3), None, None])
         self.trajectory_complement_long = Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])
         self.trajectory_angle = Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2)])
-        self.trajectorylist = TrajectoryList(list_of_trajectory=[self.trajectory,
-                                                                 self.trajectory_complement_short,
-                                                                 self.trajectory_complement_long,
-                                                                 self.trajectory_angle])
+        self.trajectorylist = TrajectoryList(list_of_trajectories=[self.trajectory,
+                                                                   self.trajectory_complement_short,
+                                                                   self.trajectory_complement_long,
+                                                                   self.trajectory_angle])
+
     def test_normalize_trajecotories_length(self):
-        self.assertEqual([len(trajectory) for trajectory in self.trajectorylist], [7]*4)
+        self.assertEqual([len(trajectory) for trajectory in self.trajectorylist], [7] * 4)
         self.assertEqual(self.trajectorylist.number_of_levels, 7)
 
     def test_len_method(self):
@@ -130,7 +132,8 @@ class TestTrajectoryListMethods(unittest.TestCase):
         self.assertEqual(self.trajectorylist[3][4], (4, 2))
 
     def test_getitem_all(self):
-        self.assertListEqual(self.trajectorylist[2][:], Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])[:])
+        self.assertListEqual(self.trajectorylist[2][:],
+                             Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])[:])
 
     def test_mean_of_points(self):
         self.trajectorylist.calculate_min_max()
@@ -157,8 +160,34 @@ class TestTrajectoryListMethods(unittest.TestCase):
                          Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None])[:])
 
     def test_number_of_spectra_sequence(self):
-        self.assertEqual(self.trajectorylist.get_number_of_spectra_sequence(), 7)
+        self.assertEqual(self.trajectorylist.number_of_levels, 7)
 
+    def test_get_distances(self):
+        self.assertListEqual(self.trajectorylist.get_distances_euclidean(interval=[0, 3]),
+                             [[1.4142135623730951, 0.0, 0.0, 1.118033988749895],
+                              [0.7071067811865476, 0.0, 1.5811388300841898]])
+
+    def test_get_distances(self):
+        self.assertListEqual(self.trajectorylist.get_distances_euclidean(),
+                             [[1.4142135623730951, 0.0, 0.0, 1.118033988749895],
+                              [],
+                              [2.23606797749979, 0.0, 0.0],
+                              [0.7071067811865476, 0.0, 1.5811388300841898]])
+
+    def test_get_distances(self):
+        self.assertListEqual(self.trajectorylist.get_distances_min_max_norm(interval=[0, 3]),
+                             [[(-0.1111111111111111, -0.08333333333333333),
+                               (-0.1111111111111111, -0.20833333333333334)],
+                              [(-0.1111111111111111, -0.08333333333333333),
+                               (-0.1111111111111111, 0.08333333333333333)]])
+
+    def test_get_distances(self):
+        self.assertListEqual(self.trajectorylist.get_mean_angles_of_trajectory(),
+                             [0.4048917862850834, None, None, 1.5707963267948966])
+
+    def test_get_distances(self):
+        self.assertListEqual(self.trajectorylist.get_distances_from_mean(interval=[0, 3]),
+                             [0.4048917862850834, None, None, 1.5707963267948966])
 
 
 if __name__ == '__main__':

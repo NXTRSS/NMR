@@ -1,7 +1,10 @@
 import numpy as np
+import csv
+import os
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.peak_picking.PeakList import PeakList
+
 
 class TrajectoryList:
     """List of Trajectory objects. If Length of trajectories will be different then class add None in the end of shorter
@@ -11,19 +14,20 @@ class TrajectoryList:
     STYLE_CONN = 'r'
     STYLE_GAP_CONN = 'r--'
     STYLE_GAP_FILLER = 'cD'
+    MOVING_LIM_PARAMETER = 0.0006
 
     ####
     # Constructor
-    def __init__(self, list_of_trajectory=None, norm_list_of_trajectories=None, path=None, directory=None):
-        self.list = list_of_trajectory if list_of_trajectory else []
+    def __init__(self, list_of_trajectories=None, norm_list_of_trajectories=None, path=None, directory=None):
+        self.number_of_levels = None
+        self.list = list_of_trajectories if list_of_trajectories else []
         if self.list != []:
-            self.normalize_trajecotories_length()
+            self.number_of_levels, self.list = normalize_trajectories_length(list_of_trajectories)
         self.norm_list = norm_list_of_trajectories if norm_list_of_trajectories else []
         if self.norm_list != []:
-            self.normalize_trajecotories_length_norm_list()
+            _, self.norm_list = normalize_trajectories_length(self.norm_list)
         self.path = path
         self.dir = directory
-        self.number_of_levels = None
         self.mean_x = None
         self.mean_y = None
         self.min_x = None
@@ -39,24 +43,6 @@ class TrajectoryList:
 
     def __len__(self):
         return len(self.list)
-
-    def normalize_trajectories_length(self):
-        max_length = max([len(trajectory) for trajectory in self])
-        self.number_of_levels = max_length
-
-        for trajectory in self:
-            if len(trajectory) != max_length:
-                for i in range(len(trajectory), max_length):
-                    trajectory.add_point(None)
-
-    def normalize_trajectories_length_norm_list(self):
-        max_length = max([len(trajectory) for trajectory in self.norm_list])
-
-        for trajectory in self.norm_list:
-            if len(trajectory) != max_length:
-                for i in range(len(trajectory), max_length):
-                    trajectory.add_point(None)
-
 
     def calculate_min_max(self):
         max_x_trajectories = [max(trajectory.get_all_x(with_none_points=False)) for trajectory in self]
@@ -97,12 +83,12 @@ class TrajectoryList:
     def add_trajectory(self, trajectory):
         self.append(trajectory)
         if len(trajectory) != self.number_of_levels:
-            self.normalize_trajectories_length()
+            self.number_of_levels, self.list = normalize_trajectories_length(self.list)
 
     def add_trajectory_norm_list(self, trajectory):
         self.norm_list.append(trajectory)
         if len(trajectory) != self.number_of_levels:
-            self.normalize_trajectories_length_norm_list()
+            _, self.norm_list = normalize_trajectories_length(self.norm_list)
 
     def add_trajectories(self, trajectories_list):
         for trajectory in trajectories_list:
@@ -118,10 +104,171 @@ class TrajectoryList:
     def get_trajectory_norm_list(self, number):
         return self.norm_list[number]
 
+    def get_distances_old(self, interval=None, normalization=None, mode=1):
+        distances = []
+        if interval is None:
+            interval = range(len(self.list))
+
+        if normalization is None:
+            if mode == 1:  # euclidean distances
+                for k in interval:
+                    trajectory = self.get_trajectory(k)
+                    trajectory_dist = trajectory.get_distances()
+                    one = []
+                    for i in range(len(trajectory_dist))[:-1]:
+                        one.append(np.sqrt((trajectory_dist[i + 1][0] - trajectory_dist[i][0]) ** 2 +
+                                           (trajectory_dist[i + 1][1] - trajectory_dist[i][1]) ** 2))
+                    distances.append(one)
+            else:
+                self.calculate_min_max()
+                for i in interval:
+                    trajectory = self.get_trajectory(i)
+                    value = [tuple([a[0] / (self.max_x - self.min_x), a[1] / (self.max_y - self.min_y)])
+                             for a in trajectory.get_distances_sep()]
+                    distances.append(value)
+
+        else:
+            if mode == 1:  # euclidean distances
+                for k in interval:
+                    trajectory = self.norm_list[k]
+                    trajectory_dist = trajectory.get_distances()
+                    one = []
+                    for i in range(len(trajectory_dist))[:-1]:
+                        one.append(np.sqrt((trajectory_dist[i + 1][0] - trajectory_dist[i][0]) ** 2 +
+                                           (trajectory_dist[i + 1][1] - trajectory_dist[i][1]) ** 2))
+                    distances.append(one)
+            else:
+                for i in interval:
+                    trajectory = self.get_trajectory(i)
+                    value = [tuple([a[0] / (self.max_x - self.min_x), a[1] / (self.max_y - self.min_y)])
+                             for a in trajectory.get_distances_sep()]
+                    distances.append(value)
+
+        return distances
+
+    def get_distances_euclidean(self, interval=None, normalization=None):
+        distances = []
+        if interval is None:
+            interval = range(len(self)) #take all trajectories in trajectories list
+
+        if normalization is None:
+            for trajectory in [self[idx] for idx in interval]:
+                trajectory_dist = trajectory.get_distances()
+                one_trajectory_list = []
+                for i in range(len(trajectory_dist))[:-1]:
+                    one_trajectory_list.append(np.sqrt((trajectory_dist[i + 1][0] - trajectory_dist[i][0]) ** 2 +
+                                                       (trajectory_dist[i + 1][1] - trajectory_dist[i][1]) ** 2))
+                distances.append(one_trajectory_list)
+
+        else:
+            if not self.norm_list:
+                self.normalize()
+            for trajectory in [self.norm_list[idx] for idx in interval]:
+                trajectory_dist = trajectory.get_distances()
+                one_trajectory_list = []
+                for i in range(len(trajectory_dist))[:-1]:
+                    one_trajectory_list.append(np.sqrt((trajectory_dist[i + 1][0] - trajectory_dist[i][0]) ** 2 +
+                                                       (trajectory_dist[i + 1][1] - trajectory_dist[i][1]) ** 2))
+                distances.append(one_trajectory_list)
+
+        return distances
+
+    def get_distances_min_max_norm(self, interval=None, normalization=None):
+        distances = []
+        if interval is None:
+            interval = range(len(self)) #take all trajectories in trajectories list
+
+        if self.min_x is None or self.max_x is None or self.min_y is None or self.max_y is None:
+            self.calculate_min_max()
+        for trajectory in [self[idx] for idx in interval]:
+            value = [tuple([a[0] / (self.max_x - self.min_x), a[1] / (self.max_y - self.min_y)])
+                     for a in trajectory.get_distances_sep()]
+            distances.append(value)
+
+        return distances
+
+    def get_mean_angles_of_trajectory(self, interval=None):
+        angles = []
+        if interval is None:
+            interval = range(len(self))
+        for trajectory in [self[idx] for idx in interval]:
+            angles_in_trajectory = trajectory.get_angles()
+            if angles_in_trajectory != []:
+                mean = np.mean(angles_in_trajectory)
+            else:
+                mean = None
+            angles += [mean]
+        return angles
+
+    def get_distances_from_mean(self, interval=None):
+        distances = []
+        if interval is None:
+            interval = range(len(self))
+        for trajectory in [self[idx] for idx in interval]:
+            [xm, ym] = trajectory.get_mean()
+            x0 = [x for x in trajectory.get_all_x() if x is not None][0]
+            y0 = [y for y in trajectory.get_all_y() if y is not None][0]
+            # xl = [x for x in trajectory.get_x() if x is not None][-1]
+            # yl = [y for y in trajectory.get_y() if y is not None][-1]
+            # a = np.sqrt((x0-xm)**2+(y0-ym)**2)
+            # b = np.sqrt((xl-xm)**2+(yl-ym)**2)
+            distances.append([abs(x0-xm), abs(y0-ym)])
+
+        return distances
+
+    def distances_from_start_to_end(self, interval=None):
+        distances = []
+        if interval is None:
+            interval = range(len(self.list))
+        for trajectory in [self[idx] for idx in interval]:
+            x0 = [x for x in trajectory.get_x() if x is not None][0]
+            y0 = [y for y in trajectory.get_y() if y is not None][0]
+            xl = [x for x in trajectory.get_x() if x is not None][-1]
+            yl = [y for y in trajectory.get_y() if y is not None][-1]
+            # a = np.sqrt((x0-xm)**2+(y0-ym)**2)
+            # b = np.sqrt((xl-xm)**2+(yl-ym)**2)
+            distances.append([abs(x0 - xl), abs(y0 - yl)])
+
+        return distances
+
+    def create_gap(self, gap_probability):
+        for trajectory in self:
+            for point in range(len(trajectory)):
+                if np.random.uniform() <= gap_probability:
+                    trajectory.remove_point(point)
+
+    # def trajectories_moving(self, directory=None):
+    #     lim = self.MOVING_LIM_PARAMETER * self.number_of_levels
+    #
+    #     moving = []
+    #     staying = []
+    #     if self.max_x or self.max_y is None:
+    #         self.calculate_min_max()
+    #     if directory is None:
+    #         for k, distances in enumerate(self.distances_from_start_to_end()):
+    #             if np.sqrt((distances[0]/(self.max_x-self.min_x))**2 + (distances[1]/(self.max_y-self.min_y))**2) > lim:
+    #                 moving.append(k)
+    #             else:
+    #                 staying.append(k)
+    #
+    #     else:
+    #         distances = self.distances_from_mean()
+    #         directory = self.dir if directory is None else directory
+    #         os.chdir(directory)
+    #         files = [file_name for file_name in glob.glob("*.txt")]
+    #         file_name = open(files[0], 'r')
+    #         n = file_name.read()
+    #         distances_e = [(dist[0] / self.max_x[0]) ** 2 + (dist[1] / self.max_y[0]) ** 2 for dist in distances]
+    #         indx = [i[0] for i in sorted(enumerate(distances_e), key=lambda x:x[1])]
+    #
+    #         moving = indx[0:n]
+    #         staying = indx[n+1:]
+    #     return [moving, staying]
+
     def split_into_peak_lists(self):
 
         num_of_peak_list = self.number_of_levels
-        peak_lists = [0]*num_of_peak_list
+        peak_lists = [0] * num_of_peak_list
 
         # Initialize peak list objects
         for x in range(0, num_of_peak_list):
@@ -138,3 +285,19 @@ class TrajectoryList:
                     peak_lists[x].add_peak(trajectory[x])
 
         return peak_lists
+
+    def save_to_csv(self, path):
+        with open(path, 'w') as output:
+            writer = csv.writer(output, delimiter=';')
+            for trajectory in self.list:
+                writer.writerow(trajectory)
+
+
+def normalize_trajectories_length(list_of_trajectories):
+    max_length = max([len(trajectory) for trajectory in list_of_trajectories])
+
+    for trajectory in list_of_trajectories:
+        if len(trajectory) != max_length:
+            for i in range(len(trajectory), max_length):
+                trajectory.add_point(None)
+    return max_length, list_of_trajectories

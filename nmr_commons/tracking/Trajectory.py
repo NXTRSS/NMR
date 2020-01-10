@@ -91,13 +91,13 @@ class Trajectory:
         return index
 
     def get_distances(self):
-        distances = [None] * (len(self) - 1)
+        distances = list()
         for i, point in enumerate(self[:-1]):
             if self[i] is not None:
                 k = i + 1
                 if self[k] is not None:
-                    distances[i] = ((point[0] - self.get_x(k)),
-                                    (point[1] - self.get_y(k)))
+                    distances.append(((point[0] - self.get_x(k)),
+                                    (point[1] - self.get_y(k))))
                 else:
                     while k != (len(self) - 1) and self[k] is None:
                         k += 1
@@ -105,8 +105,8 @@ class Trajectory:
                         return distances
                     else:
                         for j in range(i, k):
-                            distances[j] = ((point[0] - self.get_x(k)) / (k - i),
-                                            (point[1] - self.get_y(k)) / (k - i))
+                            distances.append(((point[0] - self.get_x(k)) / (k - i),
+                                            (point[1] - self.get_y(k)) / (k - i)))
         return distances
 
     def get_distances_sep(self):
