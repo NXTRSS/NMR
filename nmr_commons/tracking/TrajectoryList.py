@@ -1,6 +1,7 @@
 import numpy as np
 import csv
 import os
+import glob
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.peak_picking.PeakList import PeakList
@@ -200,14 +201,14 @@ class TrajectoryList:
             angles += [mean]
         return angles
 
-    def get_distances_from_mean(self, interval=None):
+    def get_distances_first_point_from_mean(self, interval=None):
         distances = []
         if interval is None:
             interval = range(len(self))
         for trajectory in [self[idx] for idx in interval]:
             [xm, ym] = trajectory.get_mean()
-            x0 = [x for x in trajectory.get_all_x() if x is not None][0]
-            y0 = [y for y in trajectory.get_all_y() if y is not None][0]
+            x0 = trajectory.get_all_x(with_none_points=False)[0]
+            y0 = trajectory.get_all_y(with_none_points=False)[0]
             # xl = [x for x in trajectory.get_x() if x is not None][-1]
             # yl = [y for y in trajectory.get_y() if y is not None][-1]
             # a = np.sqrt((x0-xm)**2+(y0-ym)**2)
@@ -216,15 +217,18 @@ class TrajectoryList:
 
         return distances
 
-    def distances_from_start_to_end(self, interval=None):
+    def get_distances_from_start_to_end(self, interval=None):
         distances = []
         if interval is None:
             interval = range(len(self.list))
         for trajectory in [self[idx] for idx in interval]:
-            x0 = [x for x in trajectory.get_x() if x is not None][0]
-            y0 = [y for y in trajectory.get_y() if y is not None][0]
-            xl = [x for x in trajectory.get_x() if x is not None][-1]
-            yl = [y for y in trajectory.get_y() if y is not None][-1]
+            x_all = trajectory.get_all_x(with_none_points=False)
+            x0 = x_all[0]
+            xl = x_all[-1]
+
+            y_all = trajectory.get_all_y(with_none_points=False)
+            y0 = y_all[0]
+            yl = y_all[-1]
             # a = np.sqrt((x0-xm)**2+(y0-ym)**2)
             # b = np.sqrt((xl-xm)**2+(yl-ym)**2)
             distances.append([abs(x0 - xl), abs(y0 - yl)])
@@ -237,33 +241,34 @@ class TrajectoryList:
                 if np.random.uniform() <= gap_probability:
                     trajectory.remove_point(point)
 
-    # def trajectories_moving(self, directory=None):
-    #     lim = self.MOVING_LIM_PARAMETER * self.number_of_levels
-    #
-    #     moving = []
-    #     staying = []
-    #     if self.max_x or self.max_y is None:
-    #         self.calculate_min_max()
-    #     if directory is None:
-    #         for k, distances in enumerate(self.distances_from_start_to_end()):
-    #             if np.sqrt((distances[0]/(self.max_x-self.min_x))**2 + (distances[1]/(self.max_y-self.min_y))**2) > lim:
-    #                 moving.append(k)
-    #             else:
-    #                 staying.append(k)
-    #
-    #     else:
-    #         distances = self.distances_from_mean()
-    #         directory = self.dir if directory is None else directory
-    #         os.chdir(directory)
-    #         files = [file_name for file_name in glob.glob("*.txt")]
-    #         file_name = open(files[0], 'r')
-    #         n = file_name.read()
-    #         distances_e = [(dist[0] / self.max_x[0]) ** 2 + (dist[1] / self.max_y[0]) ** 2 for dist in distances]
-    #         indx = [i[0] for i in sorted(enumerate(distances_e), key=lambda x:x[1])]
-    #
-    #         moving = indx[0:n]
-    #         staying = indx[n+1:]
-    #     return [moving, staying]
+    def trajectories_moving(self, directory=None, directory_path=None):
+        lim = self.MOVING_LIM_PARAMETER * self.number_of_levels
+
+        moving = []
+        staying = []
+        if self.max_x or self.max_y is None:
+            self.calculate_min_max()
+        if directory is None:
+            for k, distances in enumerate(self.get_distances_from_start_to_end()):
+                if np.sqrt((distances[0]/(self.max_x-self.min_x))**2 + (distances[1]/(self.max_y-self.min_y))**2) > lim:
+                    moving.append(k)
+                else:
+                    staying.append(k)
+
+        else:
+            distances = self.distances_from_mean()
+            distances_e = [(dist[0] / self.max_x[0]) ** 2 + (dist[1] / self.max_y[0]) ** 2 for dist in distances]
+            idx = [i[0] for i in sorted(enumerate(distances_e), key=lambda x:x[1])]
+
+            directory = self.dir if directory_path is None else directory_path
+            os.chdir(directory)
+            files = [file_name for file_name in glob.glob("*.txt")]
+            file_name = open(files[0], 'r')
+            n = file_name.read()
+
+            moving = idx[0:n]
+            staying = idx[n+1:]
+        return [moving, staying]
 
     def split_into_peak_lists(self):
 
@@ -301,3 +306,27 @@ def normalize_trajectories_length(list_of_trajectories):
             for i in range(len(trajectory), max_length):
                 trajectory.add_point(None)
     return max_length, list_of_trajectories
+
+def cross_check_of_two_points(a_start, a_end, b_start, b_end):
+    if a_start is None or a_end is None or b_start is None or b_end is None:
+        return 0
+
+    crossing = 0
+
+    a_end = np.array([a_end[0], a_end[1]])
+    a_beg = np.array([a_start[0], a_start[1]])
+
+    b_end = np.array([b_end[0], b_end[1]])
+    b_beg = np.array([b_start[0], b_start[1]])
+
+    point_temp = a_end - a_beg
+    beg_cross = np.cross((b_beg - a_beg), point_temp)
+    end_cross = np.cross((b_end - a_beg), point_temp)
+    if beg_cross != 0 and end_cross != 0 and np.sign(beg_cross) != np.sign(end_cross):
+        temp2 = b_end - b_beg
+        beg2_cross = np.cross((a_beg - b_beg), temp2)
+        end2_cross = np.cross((a_end - b_beg), temp2)
+        if beg2_cross != 0 and end2_cross != 0 and np.sign(beg2_cross) != np.sign(end2_cross):
+            crossing = 1
+
+    return crossing

@@ -186,9 +186,16 @@ class TestTrajectoryListMethods(unittest.TestCase):
                              [0.4048917862850834, None, None, 1.5707963267948966])
 
     def test_get_distances(self):
-        self.assertListEqual(self.trajectorylist.get_distances_from_mean(interval=[0, 3]),
-                             [0.4048917862850834, None, None, 1.5707963267948966])
+        self.assertListEqual(self.trajectorylist.get_distances_first_point_from_mean(interval=[0, 3]),
+                             [[4, 4.375],[1.5, 1]])
 
+    def test_get_distances_from_start_to_end(self):
+        self.assertListEqual(self.trajectorylist.get_distances_from_start_to_end(),
+                             [[8, 9.5], [0, 0], [7, 10], [3, 1]])
+
+    def test_get_distances_from_start_to_end(self):
+        self.assertListEqual(self.trajectorylist.get_distances_from_start_to_end(),
+                             [[8, 9.5], [0, 0], [7, 10], [3, 1]])
 
 if __name__ == '__main__':
     unittest.main()
