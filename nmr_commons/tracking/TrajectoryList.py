@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import os
 import glob
+import numbers
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.peak_picking.PeakList import PeakList
@@ -39,8 +40,20 @@ class TrajectoryList:
     def __iter__(self):
         return self.list.__iter__()
 
-    def __getitem__(self, item):
-        return self.list[item]
+    # def __getitem__(self, item):
+    #     return self.list[item]
+
+    def __getitem__(self, index):
+        cls = type(self)
+        if isinstance(index, slice):
+            return cls(list_of_trajectories=self.list[index])
+        elif isinstance(index, list):
+            return cls(list_of_trajectories=[self[idx] for idx in index])
+        elif isinstance(index, numbers.Integral):
+            return self.list[index]
+        else:
+            msg = '{cls.__name__} indices must be integers'
+            raise TypeError(msg.format(cls=cls))
 
     def __len__(self):
         return len(self.list)
@@ -54,6 +67,14 @@ class TrajectoryList:
         self.min_x = min(min_x_trajectories)
         self.max_y = max(max_y_trajectories)
         self.min_y = min(min_y_trajectories)
+
+    def get_trajectories_bounding_box(self):
+        bounding_box_list = [None]*len(self)
+        for i, trajectory in enumerate(self):
+            x_min, y_min = trajectory.get_min()
+            x_max, y_max = trajectory.get_max()
+            bounding_box_list[i] = (x_min, x_max, y_min, y_max)
+        return bounding_box_list
 
     def calculate_mean_of_points(self):
         trajectory_list_x = [trajectory.get_all_x(with_none_points=False) for trajectory in self.list]
@@ -241,7 +262,7 @@ class TrajectoryList:
                 if np.random.uniform() <= gap_probability:
                     trajectory.remove_point(point)
 
-    def trajectories_moving(self, directory=None, directory_path=None):
+    def trajectories_moving_staying_idx(self, directory=None, directory_path=None):
         lim = self.MOVING_LIM_PARAMETER * self.number_of_levels
 
         moving = []
@@ -256,7 +277,7 @@ class TrajectoryList:
                     staying.append(k)
 
         else:
-            distances = self.distances_from_mean()
+            distances = self.get_distances_first_point_from_mean()
             distances_e = [(dist[0] / self.max_x[0]) ** 2 + (dist[1] / self.max_y[0]) ** 2 for dist in distances]
             idx = [i[0] for i in sorted(enumerate(distances_e), key=lambda x:x[1])]
 
@@ -269,6 +290,44 @@ class TrajectoryList:
             moving = idx[0:n]
             staying = idx[n+1:]
         return [moving, staying]
+    
+    def get_moving_trajectories(self, directory=None):
+        return self.trajectories_moving_staying_idx(directory)[0]
+
+    def get_staying_trajectories(self, directory=None):
+        return self.trajectories_moving_staying_idx(directory)[1]
+    
+    def get_crossing_trajectories_idx(self):
+        crossing = []
+        moving = self.get_moving_trajectories()
+        bounding_boxes = TrajectoryList.get_trajectories_bounding_box(self[moving])
+
+        for i, first_idx in enumerate(moving):
+            trajectory1 = self[first_idx]
+            bb1 = bounding_boxes[i]
+            for j, second_idx in enumerate(moving[i:]):
+                trajectory2 = self[second_idx]
+                bb2 = bounding_boxes[j]
+
+                if bb1[0] > bb2[1] or bb1[1] < bb2[0] or bb1[2] > bb2[3] or bb1[3] < bb2[2]:
+                    continue  # no crossing for sure
+
+                for k in range(len(trajectory1) - 1):
+                    for l in range(len(trajectory2) - 1):
+                        a_start_in = trajectory1[k]
+                        a_next = trajectory1.get_next_point(k)
+
+                        b_start_in = trajectory2[l]
+                        b_next = trajectory2.get_next_point(l)
+
+                        if a_next is not None and b_next is not None:
+                            a_end_in = trajectory1[a_next]
+                            b_end_in = trajectory2[b_next]
+
+                            if cross_check_of_two_points(a_start_in, a_end_in, b_start_in, b_end_in):
+                                crossing.append((moving[first_idx], moving[second_idx]))
+
+        return crossing
 
     def split_into_peak_lists(self):
 
@@ -330,3 +389,5 @@ def cross_check_of_two_points(a_start, a_end, b_start, b_end):
             crossing = 1
 
     return crossing
+
+

@@ -155,6 +155,16 @@ class Trajectory:
         yn = self.get_all_y(with_none_points=False)
         return [np.mean(xn), np.mean(yn)]
 
+    def get_min(self):
+        xn = self.get_all_x(with_none_points=False)
+        yn = self.get_all_y(with_none_points=False)
+        return [np.min(xn), np.min(yn)]
+
+    def get_max(self):
+        xn = self.get_all_x(with_none_points=False)
+        yn = self.get_all_y(with_none_points=False)
+        return [np.max(xn), np.max(yn)]
+
     def can_merge(self, trj):
         min_idx = min(len(self), len(trj))
         for i in range(min_idx):
