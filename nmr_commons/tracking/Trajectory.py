@@ -1,6 +1,7 @@
 import csv
 import copy
 import numpy as np
+import numbers
 
 
 class Trajectory:
@@ -20,14 +21,25 @@ class Trajectory:
     def __iter__(self):
         return iter(self.list)
 
-    def __getitem__(self, item):
-        return self.list[item]
+    def __getitem__(self, index):
+        cls = type(self)
+        if isinstance(index, slice):
+            return cls(items=self.list[index])
+        elif isinstance(index, list) or isinstance(index, range):
+            if isinstance(index, range):
+                index = list(index)
+            return cls(items=[self[idx] for idx in index])
+        elif isinstance(index, numbers.Integral):
+            return self.list[index]
+        else:
+            msg = '{cls.__name__} indices must be integers'
+            raise TypeError(msg.format(cls=cls))
 
     def __len__(self):
         return len(self.list)
 
     def __eq__(self, other):
-        return self[:] == other[:]
+        return tuple(self) == tuple(other)
 
     def get_x(self, position):
         if self[position] is not None:

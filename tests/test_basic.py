@@ -12,6 +12,9 @@ class TestTrajectoryMethods(unittest.TestCase):
         self.trajectory_complement_long = Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])
         self.trajectory_angle = Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2)])
 
+    def test_getitem(self):
+        self.assertEqual(self.trajectory[4], (8, 8))
+
     def test_eq_method(self):
         self.assertEqual(self.trajectory, Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5)]))
 
@@ -144,22 +147,19 @@ class TestTrajectoryListMethods(unittest.TestCase):
         self.assertEqual(self.trajectory_list[3][4], (4, 2))
 
     def test_getitem_all(self):
-        self.assertListEqual(self.trajectory_list[2][:],
-                             Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])[:])
+        self.assertEqual(self.trajectory_list[2], Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)]))
 
     def test_getitem_small_list(self):
         small_trajectory_list = self.trajectory_list[[0, 3]]
-        self.assertListEqual(small_trajectory_list[0][:],
-                             Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None])[:])
-        self.assertListEqual(small_trajectory_list[1][:],
-                             Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2), None, None])[:])
+        self.assertEqual(small_trajectory_list[0],
+                             Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None]))
+        self.assertEqual(small_trajectory_list[1],
+                             Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2), None, None]))
 
     def test_getitem_slice(self):
         small_trajectory_list = self.trajectory_list[:3:2]
-        self.assertListEqual(small_trajectory_list[0][:],
-                             Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None])[:])
-        self.assertListEqual(small_trajectory_list[1][:],
-                             Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)])[:])
+        self.assertEqual(small_trajectory_list[0], Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None]))
+        self.assertEqual(small_trajectory_list[1], Trajectory([None, None, (3, 3), (4, 4), None, None, (10, 13)]))
 
     def test_get_bounding_box_of_some_trajectories_idx_list(self):
         self.assertListEqual(self.trajectory_list[[0, 3]].get_trajectories_bounding_box(),
@@ -233,6 +233,9 @@ class TestTrajectoryListMethods(unittest.TestCase):
     def test_get_crossing_trajectories(self):
         self.assertListEqual(self.trajectory_list_for_crossing.get_crossing_trajectories_idx(),
                              [(0, 1), (1, 2), (3, 4), (3, 4)])
+
+    def test_visualization(self):
+        self.trajectory_list_for_crossing.visualize_3d(show=True)
 
 
 

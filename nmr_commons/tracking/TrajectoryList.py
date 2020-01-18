@@ -3,6 +3,10 @@ import csv
 import os
 import glob
 import numbers
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.axes3d import get_test_data
+# This import registers the 3D projection, but is otherwise unused.
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.peak_picking.PeakList import PeakList
@@ -47,7 +51,9 @@ class TrajectoryList:
         cls = type(self)
         if isinstance(index, slice):
             return cls(list_of_trajectories=self.list[index])
-        elif isinstance(index, list):
+        elif isinstance(index, list) or isinstance(index, range):
+            if isinstance(index, range):
+                index = list(index)
             return cls(list_of_trajectories=[self[idx] for idx in index])
         elif isinstance(index, numbers.Integral):
             return self.list[index]
@@ -174,7 +180,7 @@ class TrajectoryList:
             interval = range(len(self)) #take all trajectories in trajectories list
 
         if normalization is None:
-            for trajectory in [self[idx] for idx in interval]:
+            for trajectory in self[interval]:
                 trajectory_dist = trajectory.get_distances()
                 one_trajectory_list = []
                 for i in range(len(trajectory_dist))[:-1]:
@@ -202,7 +208,7 @@ class TrajectoryList:
 
         if self.min_x is None or self.max_x is None or self.min_y is None or self.max_y is None:
             self.calculate_min_max()
-        for trajectory in [self[idx] for idx in interval]:
+        for trajectory in self[interval]:
             value = [tuple([a[0] / (self.max_x - self.min_x), a[1] / (self.max_y - self.min_y)])
                      for a in trajectory.get_distances_sep()]
             distances.append(value)
@@ -213,7 +219,7 @@ class TrajectoryList:
         angles = []
         if interval is None:
             interval = range(len(self))
-        for trajectory in [self[idx] for idx in interval]:
+        for trajectory in self[interval]:
             angles_in_trajectory = trajectory.get_angles()
             if angles_in_trajectory != []:
                 mean = np.mean(angles_in_trajectory)
@@ -226,7 +232,7 @@ class TrajectoryList:
         distances = []
         if interval is None:
             interval = range(len(self))
-        for trajectory in [self[idx] for idx in interval]:
+        for trajectory in self[interval]:
             [xm, ym] = trajectory.get_mean()
             x0 = trajectory.get_all_x(with_none_points=False)[0]
             y0 = trajectory.get_all_y(with_none_points=False)[0]
@@ -241,8 +247,8 @@ class TrajectoryList:
     def get_distances_from_start_to_end(self, interval=None):
         distances = []
         if interval is None:
-            interval = range(len(self.list))
-        for trajectory in [self[idx] for idx in interval]:
+            interval = range(len(self))
+        for trajectory in self[interval]:
             x_all = trajectory.get_all_x(with_none_points=False)
             x0 = x_all[0]
             xl = x_all[-1]
@@ -350,12 +356,48 @@ class TrajectoryList:
 
         return peak_lists
 
+    def visualize_3d(self, show=None, level_interval=None, trajectory_interval=None):
+        if level_interval is None:
+            level_interval = list(range(self.number_of_levels))
+        if trajectory_interval is None:
+            trajectory_interval = range(len(self))
+        fig1 = plt.figure()
+        ax = fig1.add_subplot(1, 1, 1, projection='3d')
+        for trajectory in self[trajectory_interval]:
+            not_none_point = None
+            for idx in level_interval:
+                point = trajectory[idx]
+                if point is not None:
+
+                    ax.scatter(point[0], point[1], idx)
+                    if not_none_point is None:
+                        not_none_point = (point, idx)
+                    else:
+                        previous_point, previous_idx = not_none_point
+                        ax.plot([point[0], previous_point[0]],
+                                [point[1], previous_point[1]], [idx, previous_idx], alpha=0.3, color='red')
+                        not_none_point = (point, idx)
+
+        if show is not None:
+            plt.show()
+        return fig1
+
     def save_to_csv(self, path):
         with open(path, 'w') as output:
             writer = csv.writer(output, delimiter=';')
             for trajectory in self.list:
                 writer.writerow(trajectory)
 
+def read_csv(path):
+    csv_trajectory_list = TrajectoryList()
+    csv_trajectory_list.path = path
+    csv_trajectory_list.dir = os.path.dirname(path)
+    with open(path) as f:
+        reader = csv.reader(f, delimiter=';')
+        for row in reader:
+            csv_trajectory_list.add_trajectory(Trajectory.read_from_csv(row))
+
+    return csv_trajectory_list
 
 def normalize_trajectories_length(list_of_trajectories):
     max_length = max([len(trajectory) for trajectory in list_of_trajectories])
@@ -389,5 +431,6 @@ def cross_check_of_two_points(a_start, a_end, b_start, b_end):
             crossing = 1
 
     return crossing
+
 
 
