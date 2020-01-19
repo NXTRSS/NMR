@@ -4,9 +4,9 @@ import os
 import glob
 import numbers
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.axes3d import get_test_data
-# This import registers the 3D projection, but is otherwise unused.
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+from collections import OrderedDict
+
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.peak_picking.PeakList import PeakList
@@ -356,14 +356,14 @@ class TrajectoryList:
 
         return peak_lists
 
-    def visualize_3d(self, show=None, level_interval=None, trajectory_interval=None):
+    def visualize_3d(self, show=None, level_interval=None, trajectories_interval=None):
         if level_interval is None:
             level_interval = list(range(self.number_of_levels))
-        if trajectory_interval is None:
-            trajectory_interval = range(len(self))
+        if trajectories_interval is None:
+            trajectories_interval = range(len(self))
         fig1 = plt.figure()
         ax = fig1.add_subplot(1, 1, 1, projection='3d')
-        for trajectory in self[trajectory_interval]:
+        for trajectory in self[trajectories_interval]:
             not_none_point = None
             for idx in level_interval:
                 point = trajectory[idx]
@@ -381,6 +381,53 @@ class TrajectoryList:
         if show is not None:
             plt.show()
         return fig1
+
+    def visualize_2d(self, show=None, title=None, level_interval=None, trajectories_interval=None, save_path=None, formats=None):
+        if level_interval is None:
+            level_interval = range(self.number_of_levels)
+
+        if trajectories_interval is None:
+            trajectories_interval = range(len(self))
+
+        fig = plt.gcf()
+        plot_queue = OrderedDict([
+            (TrajectoryList.STYLE_GAP_FILLER, []),
+            (TrajectoryList.STYLE_ARTIFACT, []),
+            (TrajectoryList.STYLE_TRUE_PEAK, []),
+            (TrajectoryList.STYLE_CONN, []),
+            (TrajectoryList.STYLE_GAP_CONN, [])
+        ])
+
+        for i, trajectory in enumerate(self[trajectories_interval]):
+            plot_queue, start_point = add_trajectory_to_plot_queue(trajectory, level_interval, plot_queue)
+            if start_point is not None:
+                plt.text(start_point[0], start_point[1], str(i), color='green', size=10)
+
+        for style, points in plot_queue.items():
+            if len(points) > 0:
+                if style in [TrajectoryList.STYLE_CONN, TrajectoryList.STYLE_GAP_CONN]:
+                    for elem in points:
+                        xs, ys = zip(*elem)
+                        plt.plot(xs, ys, style, alpha=0.8)
+                else:
+                    xs, ys = zip(*points)
+                    plt.plot(xs, ys, style)
+
+        if title is not None:
+            plt.title(title)
+
+        if show is not None:
+            plt.show(fig)
+
+        if save_path is not None:
+            fig.set_size_inches(2*11.7, 2*8.27)
+            if formats is None:
+                plt.savefig(save_path, dpi=200, format='pdf')
+            else:
+                for fmt in formats:
+                    plt.savefig(save_path + '.' + fmt, dpi=200, format=fmt)
+            plt.close()
+        return fig
 
     def save_to_csv(self, path):
         with open(path, 'w') as output:
@@ -431,6 +478,32 @@ def cross_check_of_two_points(a_start, a_end, b_start, b_end):
             crossing = 1
 
     return crossing
+
+def add_trajectory_to_plot_queue(trajectory, level_interval, plot_queue):
+    point_style = TrajectoryList.STYLE_TRUE_PEAK if trajectory.flag else TrajectoryList.STYLE_ARTIFACT
+    valid_points = [(idx, point) for idx, point in enumerate(trajectory) if idx in level_interval and point is not None]
+    start_point = valid_points[0][1] if len(valid_points) > 0 else None
+
+    not_none_point = None
+    for idx, point in valid_points:
+        plot_queue[point_style].append(point)
+        # k = trajectory.get_next_point(idx)
+
+        if not_none_point is None:
+            not_none_point = (point, idx)
+        else:
+            previous_point, previous_idx = not_none_point
+            if previous_idx + 1 == idx:
+                plot_queue[TrajectoryList.STYLE_CONN].append([previous_point, point])
+            else:
+                plot_queue[TrajectoryList.STYLE_GAP_CONN].append([previous_point, point])
+                for i in range(idx - previous_idx - 1):
+                    middle_point_x = previous_point[0] + (i + 1) / (idx - previous_idx) * (point[0] - previous_point[0])
+                    middle_point_y = previous_point[1] + (i + 1) / (idx - previous_idx) * (point[1] - previous_point[1])
+                    plot_queue[TrajectoryList.STYLE_GAP_FILLER].append((middle_point_x, middle_point_y))
+            not_none_point = (point, idx)
+
+    return (plot_queue, start_point)
 
 
 

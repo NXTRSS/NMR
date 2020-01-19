@@ -124,10 +124,10 @@ class TestTrajectoryListMethods(unittest.TestCase):
                                                                     self.trajectory_complement_long,
                                                                     self.trajectory_angle])
 
-        self.trajectory_for_crossing1 = Trajectory([(0, 0), (1, 1)])
+        self.trajectory_for_crossing1 = Trajectory([(0, 0), (1, 1)][::-1])
         self.trajectory_for_crossing2 = Trajectory([(1, 0), (0, 1)])
         self.trajectory_for_crossing3 = Trajectory([(0, 0), None, (5, 5)])
-        self.trajectory_for_crossing4 = Trajectory([(0, 0), (1, 0), (2, 1), (2, 2), (1, 3), (0, 3)])
+        self.trajectory_for_crossing4 = Trajectory([(0, 0), (1, 0), (2, 1), (2, 2), (1, 3), (0, 3)][::-1])
         self.trajectory_for_crossing5 = Trajectory([(3, 0), (2, 0), (1, 1), (1, 2), (2, 3), (3, 3)])
         self.trajectory_list_for_crossing = TrajectoryList(list_of_trajectories=[self.trajectory_for_crossing1,
                                                                                  self.trajectory_for_crossing2,
@@ -234,10 +234,11 @@ class TestTrajectoryListMethods(unittest.TestCase):
         self.assertListEqual(self.trajectory_list_for_crossing.get_crossing_trajectories_idx(),
                              [(0, 1), (1, 2), (3, 4), (3, 4)])
 
-    def test_visualization(self):
-        self.trajectory_list_for_crossing.visualize_3d(show=True)
+    # def test_visualization_3d(self):
+    #     self.trajectory_list_for_crossing.visualize_3d(show=True)
 
-
+    # def test_visualization_2d(self):
+    #     self.trajectory_list_for_crossing.visualize_2d(show=True)
 
 
 if __name__ == '__main__':
