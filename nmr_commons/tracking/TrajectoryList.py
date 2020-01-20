@@ -27,10 +27,10 @@ class TrajectoryList:
     def __init__(self, list_of_trajectories=None, norm_list_of_trajectories=None, path=None, directory=None):
         self.number_of_levels = None
         self.list = list_of_trajectories if list_of_trajectories else []
-        if self.list != []:
+        if self.list:
             self.number_of_levels, self.list = normalize_trajectories_length(list_of_trajectories)
         self.norm_list = norm_list_of_trajectories if norm_list_of_trajectories else []
-        if self.norm_list != []:
+        if self.norm_list:
             _, self.norm_list = normalize_trajectories_length(self.norm_list)
         self.path = path
         self.dir = directory
