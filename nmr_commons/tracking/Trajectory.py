@@ -1,6 +1,7 @@
 import csv
 import copy
 import numpy as np
+import numbers
 
 
 class Trajectory:
@@ -20,11 +21,25 @@ class Trajectory:
     def __iter__(self):
         return iter(self.list)
 
-    def __getitem__(self, item):
-        return self.list[item]
+    def __getitem__(self, index):
+        cls = type(self)
+        if isinstance(index, slice):
+            return cls(items=self.list[index])
+        elif isinstance(index, list) or isinstance(index, range):
+            if isinstance(index, range):
+                index = list(index)
+            return cls(items=[self[idx] for idx in index])
+        elif isinstance(index, numbers.Integral):
+            return self.list[index]
+        else:
+            msg = '{cls.__name__} indices must be integers'
+            raise TypeError(msg.format(cls=cls))
 
     def __len__(self):
         return len(self.list)
+
+    def __eq__(self, other):
+        return tuple(self) == tuple(other)
 
     def get_x(self, position):
         if self[position] is not None:
@@ -88,13 +103,13 @@ class Trajectory:
         return index
 
     def get_distances(self):
-        distances = [None] * (len(self) - 1)
+        distances = list()
         for i, point in enumerate(self[:-1]):
             if self[i] is not None:
                 k = i + 1
                 if self[k] is not None:
-                    distances[i] = ((point[0] - self.get_x(k)),
-                                    (point[1] - self.get_y(k)))
+                    distances.append(((point[0] - self.get_x(k)),
+                                    (point[1] - self.get_y(k))))
                 else:
                     while k != (len(self) - 1) and self[k] is None:
                         k += 1
@@ -102,8 +117,8 @@ class Trajectory:
                         return distances
                     else:
                         for j in range(i, k):
-                            distances[j] = ((point[0] - self.get_x(k)) / (k - i),
-                                            (point[1] - self.get_y(k)) / (k - i))
+                            distances.append(((point[0] - self.get_x(k)) / (k - i),
+                                            (point[1] - self.get_y(k)) / (k - i)))
         return distances
 
     def get_distances_sep(self):
@@ -151,6 +166,16 @@ class Trajectory:
         xn = self.get_all_x(with_none_points=False)
         yn = self.get_all_y(with_none_points=False)
         return [np.mean(xn), np.mean(yn)]
+
+    def get_min(self):
+        xn = self.get_all_x(with_none_points=False)
+        yn = self.get_all_y(with_none_points=False)
+        return [np.min(xn), np.min(yn)]
+
+    def get_max(self):
+        xn = self.get_all_x(with_none_points=False)
+        yn = self.get_all_y(with_none_points=False)
+        return [np.max(xn), np.max(yn)]
 
     def can_merge(self, trj):
         min_idx = min(len(self), len(trj))
