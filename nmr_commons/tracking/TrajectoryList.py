@@ -109,7 +109,7 @@ class TrajectoryList:
             self.norm_list.append(norm_trajectory)
 
     def add_trajectory(self, trajectory):
-        self.append(trajectory)
+        self.list.append(trajectory)
         if len(trajectory) != self.number_of_levels:
             self.number_of_levels, self.list = normalize_trajectories_length(self.list)
 
@@ -435,16 +435,17 @@ class TrajectoryList:
             for trajectory in self.list:
                 writer.writerow(trajectory)
 
-def read_csv(path):
-    csv_trajectory_list = TrajectoryList()
-    csv_trajectory_list.path = path
-    csv_trajectory_list.dir = os.path.dirname(path)
-    with open(path) as f:
-        reader = csv.reader(f, delimiter=';')
-        for row in reader:
-            csv_trajectory_list.add_trajectory(Trajectory.read_from_csv(row))
+    @staticmethod
+    def read_csv(path):
+        csv_trajectory_list = TrajectoryList()
+        csv_trajectory_list.path = path
+        csv_trajectory_list.dir = os.path.dirname(path)
+        with open(path) as f:
+            reader = csv.reader(f, delimiter=';')
+            for row in reader:
+                csv_trajectory_list.add_trajectory(Trajectory.read_from_csv(row))
 
-    return csv_trajectory_list
+        return csv_trajectory_list
 
 def normalize_trajectories_length(list_of_trajectories):
     max_length = max([len(trajectory) for trajectory in list_of_trajectories])

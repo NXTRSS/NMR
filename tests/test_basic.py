@@ -3,6 +3,8 @@ from numpy.testing import assert_almost_equal
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
+from nmr_commons.tracking.TrejectoryGenerator import TrajectoryGenerator, get_path_list
+from nmr_environment import Settings
 
 
 class TestTrajectoryMethods(unittest.TestCase):
@@ -135,7 +137,6 @@ class TestTrajectoryListMethods(unittest.TestCase):
                                                                                  self.trajectory_for_crossing4,
                                                                                  self.trajectory_for_crossing5])
 
-
     def test_normalize_trajecotories_length(self):
         self.assertEqual([len(trajectory) for trajectory in self.trajectory_list], [7] * 4)
         self.assertEqual(self.trajectory_list.number_of_levels, 7)
@@ -152,9 +153,9 @@ class TestTrajectoryListMethods(unittest.TestCase):
     def test_getitem_small_list(self):
         small_trajectory_list = self.trajectory_list[[0, 3]]
         self.assertEqual(small_trajectory_list[0],
-                             Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None]))
+                         Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None]))
         self.assertEqual(small_trajectory_list[1],
-                             Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2), None, None]))
+                         Trajectory([(1, 1), (2, 2), None, (3, 3), (4, 2), None, None]))
 
     def test_getitem_slice(self):
         small_trajectory_list = self.trajectory_list[:3:2]
@@ -239,6 +240,27 @@ class TestTrajectoryListMethods(unittest.TestCase):
 
     # def test_visualization_2d(self):
     #     self.trajectory_list_for_crossing.visualize_2d(show=True)
+
+
+class TestTrajectoryGeneratorMethods(unittest.TestCase):
+    def setUp(self) -> None:
+        self.trajectory_generator = TrajectoryGenerator()
+
+    def test_get_path_list(self):
+        self.assertListEqual(get_path_list('/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking'),
+                             Settings.TRAJECTORIES_PATH)
+
+    def test_get_list_of_trajectory_list(self):
+        self.assertEqual(self.trajectory_generator.get_list_of_trajectory_list()[0][0],
+                         Trajectory([(111.394, 3.571), (111.394, 3.571), (111.395, 3.572), (111.398, 3.572),
+                                     (111.399, 3.573), (111.4, 3.573), (111.402, 3.574), (111.404, 3.574),
+                                     (111.406, 3.575), (111.408, 3.575), (111.41, 3.575)]))
+        self.assertEqual(self.trajectory_generator.get_list_of_trajectory_list()[-1][-1],
+                         Trajectory([(113.205, 4.405), (113.197, 4.399), (113.198, 4.399), (113.199, 4.395),
+                                     (113.185, 4.396), (113.19, 4.394), None, None, None]))
+
+    def test_caltulation_of_lambda(self):
+        pass
 
 
 if __name__ == '__main__':
