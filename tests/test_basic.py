@@ -247,6 +247,32 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
         self.trajectory_generator = TrajectoryGenerator()
         self.trajectory_generator.list_of_trajectory_list = self.trajectory_generator.get_list_of_trajectory_list()
 
+    def test_len_methods(self):
+        self.assertEqual(len(self.trajectory_generator), 11)
+
+    def test_getitem_number(self):
+        self.assertEqual(self.trajectory_generator[0],
+                         TrajectoryList.read_csv(
+                             '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence1/Tracking list seq1.csv'))
+
+    def test_getitem_list_if_indexes(self):
+        self.assertEqual(self.trajectory_generator[[0, 2]], TrajectoryGenerator(list_of_trajectory_list=[
+            TrajectoryList.read_csv(
+                '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence1/Tracking list seq1.csv'),
+            TrajectoryList.read_csv(
+                '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence3/Tracking list seq3.csv')
+        ]))
+
+    def test_getitem_slice(self):
+        self.assertEqual(self.trajectory_generator[0:5:2], TrajectoryGenerator(list_of_trajectory_list=[
+            TrajectoryList.read_csv(
+                '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence1/Tracking list seq1.csv'),
+            TrajectoryList.read_csv(
+                '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence3/Tracking list seq3.csv'),
+            TrajectoryList.read_csv(
+                '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence5/Tracking list seq5.csv')
+        ]))
+
     def test_get_path_list(self):
         self.assertListEqual(get_path_list('/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking'),
                              Settings.TRAJECTORIES_PATH)

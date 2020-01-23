@@ -5,11 +5,13 @@ import re
 import operator
 import matplotlib.pyplot as plt
 import numbers
+from scipy.stats import rv_continuous
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
 from nmr_environment import Settings
 from nmr_commons.utils import flatten
+
 
 class TrajectoryGenerator:
     """Class for training and generating artificial list of Trajectories. This is a main class in data augmentation task
@@ -20,7 +22,7 @@ class TrajectoryGenerator:
     def __init__(self, number_of_levels=None, path_list=None, list_of_trajectory_list=None,
                  curving_lim=0.12, k0=5, ksi0=0.0002):
         self.levels_number = number_of_levels
-        self.lam = 0 #ratio of moving trajectories vs all trajectories in trajectories lists
+        self.lam = 0  # ratio of moving trajectories vs all trajectories in trajectories lists
         self.epsilon = 0
         self.mi = [0, 0]
         self.ni = 0
@@ -28,7 +30,7 @@ class TrajectoryGenerator:
         self.k0 = k0
         self.ksi0 = ksi0
         self.ksi = 0
-        self.Ibeta = [[0, 0], [0, 0]] # covariance matrix of noise. Noise calculated only on staying trajectories
+        self.Ibeta = [[0, 0], [0, 0]]  # covariance matrix of noise. Noise calculated only on staying trajectories
         self.sigma = 0
         self.r = []
         self.path_list = path_list
@@ -48,18 +50,22 @@ class TrajectoryGenerator:
     def __getitem__(self, index):
         cls = type(self)
         if isinstance(index, slice):
-            return cls(list_of_trajectories=self.list_of_trajectory_list[index])
+            return cls(list_of_trajectory_list=self.list_of_trajectory_list[index])
         elif isinstance(index, list) or isinstance(index, range):
             if isinstance(index, range):
                 index = list(index)
-            return cls(list_of_trajectories=[self[idx] for idx in index])
+            return cls(list_of_trajectory_list=[self[idx] for idx in index])
         elif isinstance(index, numbers.Integral):
             return self.list_of_trajectory_list[index]
         else:
             msg = '{cls.__name__} indices must be integers'
             raise TypeError(msg.format(cls=cls))
+
     def __len__(self):
         return len(self.list_of_trajectory_list)
+
+    def __eq__(self, other):
+        return tuple(self) == tuple(other)
 
     def train(self, verbose=False):
         if not self.list_of_trajectory_list:
@@ -103,6 +109,38 @@ class TrajectoryGenerator:
         var = np.var(distances, axis=0)
 
         return [[var[0], 0], [0, var[1]]]
+
+    def calculate_velocity(self):
+        ksi = []
+        var = []
+        for trajectory_list in self.path_list:
+            # print(path)
+            trajectory_list = TrajectoryList.read_csv(path)
+            moving = trajectory_list.get_moving_trajectories()
+            distances = trajectory_list.get_distances(interval=moving)
+            # print(moving)
+            var += self.calculate_velocity_noise(distances)
+            distances = [x for row in distances for x in row]
+            try:
+                (alpha, loc, beta) = rv_continuous.fit(gamma, distances, floc=0, f0=2)
+                ksi.append(beta)
+            except:
+                print('Problem with fitting gamma distribution (velocity) in seq: %s' % path)
+            # print(alpha, loc)
+
+            # n, bins, patches = plt.hist(distances, bins=15, normed=True)
+            # x= np.linspace(0, max(bins), 1000)
+            # y = gamma.pdf(x, alpha, loc=loc, scale=beta)
+            # plt.plot(x, y, 'r--')
+            # plt.show()
+
+        # plt.hist(var, bins=50)
+        self.sigma = np.mean([x for x in var if not math.isnan(x)])
+        # print(self.sigma)
+        fit_alpha, fit_loc, fit_beta = rv_continuous.fit(gamma, ksi, floc=0)
+        self.k0 = fit_alpha
+        self.ksi0 = fit_beta
+
 
 def get_path_list(general_path=None):
     if general_path is None:

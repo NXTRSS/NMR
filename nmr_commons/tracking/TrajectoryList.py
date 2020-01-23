@@ -64,6 +64,9 @@ class TrajectoryList:
     def __len__(self):
         return len(self.list)
 
+    def __eq__(self, other):
+        return tuple(self) == tuple(other)
+
     def calculate_min_max(self):
         max_x_trajectories = [max(trajectory.get_all_x(with_none_points=False)) for trajectory in self]
         min_x_trajectories = [min(trajectory.get_all_x(with_none_points=False)) for trajectory in self]
