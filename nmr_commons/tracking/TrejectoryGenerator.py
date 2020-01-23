@@ -5,7 +5,8 @@ import re
 import operator
 import matplotlib.pyplot as plt
 import numbers
-from scipy.stats import rv_continuous
+from scipy.stats import rv_continuous, gamma
+import math
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
@@ -113,13 +114,10 @@ class TrajectoryGenerator:
     def calculate_velocity(self):
         ksi = []
         var = []
-        for trajectory_list in self.path_list:
-            # print(path)
-            trajectory_list = TrajectoryList.read_csv(path)
+        for trajectory_list in self:
             moving = trajectory_list.get_moving_trajectories()
-            distances = trajectory_list.get_distances(interval=moving)
-            # print(moving)
-            var += self.calculate_velocity_noise(distances)
+            distances = trajectory_list.get_distances_euclidean(interval=moving)
+            var += calculate_velocity_noise(distances)
             distances = [x for row in distances for x in row]
             try:
                 (alpha, loc, beta) = rv_continuous.fit(gamma, distances, floc=0, f0=2)
@@ -140,6 +138,14 @@ class TrajectoryGenerator:
         fit_alpha, fit_loc, fit_beta = rv_continuous.fit(gamma, ksi, floc=0)
         self.k0 = fit_alpha
         self.ksi0 = fit_beta
+
+def calculate_velocity_noise(distances):
+    var = []
+    for trajectory_distances in distances:
+        trajectory_distances_sum = sum(trajectory_distances)
+        norm_trajectory_distances = [x / trajectory_distances_sum for x in trajectory_distances]
+        var.append(np.var(norm_trajectory_distances))
+    return var
 
 
 def get_path_list(general_path=None):

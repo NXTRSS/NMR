@@ -61,13 +61,13 @@ class TestTrajectoryMethods(unittest.TestCase):
         self.assertEqual(self.trajectory.get_distances_sep(),
                          [(-1 * x[0], -1 * x[1]) for x in [(1, 1), (1, 2.5)]])
 
-    def test_get_angles(self):
+    def test_get_angles_90_degrees(self):
         self.assertAlmostEqual(self.trajectory_angle.get_angles()[0], 1.57, places=2)
 
     def test_get_angles(self):
         self.assertAlmostEqual(self.trajectory.get_angles()[0], 0.4, places=2)
 
-    def test_get_all_x(self):
+    def test_get_all_x_with_none(self):
         self.assertEqual(self.trajectory.get_all_x(), [1, 2, None, None, 8, 9])
 
     def test_get_all_x(self):
@@ -96,10 +96,10 @@ class TestTrajectoryMethods(unittest.TestCase):
         self.trajectory.merge(self.trajectory_complement_long)
         self.assertEqual(self.trajectory[:], [(1, 1), (2, 2), (3, 3), (4, 4), (8, 8), (9, 10.5)])
 
-    def test_get_first_last_normal_calse(self):
+    def test_get_first_last_normal_case(self):
         self.assertEqual(self.trajectory.get_first_last(), (0, 5, (1, 1), (9, 10.5)))
 
-    def test_get_first_last_none_in_the_beggining(self):
+    def test_get_first_last_none_in_the_beginning(self):
         self.assertEqual(self.trajectory_complement_long.get_first_last(), (2, 6, (3, 3), (10, 13)))
 
     def test_get_first_last_only_one_element(self):
@@ -137,7 +137,7 @@ class TestTrajectoryListMethods(unittest.TestCase):
                                                                                  self.trajectory_for_crossing4,
                                                                                  self.trajectory_for_crossing5])
 
-    def test_normalize_trajecotories_length(self):
+    def test_normalize_trajectories_length(self):
         self.assertEqual([len(trajectory) for trajectory in self.trajectory_list], [7] * 4)
         self.assertEqual(self.trajectory_list.number_of_levels, 7)
 
@@ -170,7 +170,7 @@ class TestTrajectoryListMethods(unittest.TestCase):
         self.assertListEqual(self.trajectory_list[0:3:2].get_trajectories_bounding_box(),
                              [(1, 9, 1.0, 10.5), (3, 10, 3, 13)])
 
-    def test_mean_of_points(self):
+    def test_min_max_of_points(self):
         self.trajectory_list.calculate_min_max()
         self.assertEqual(self.trajectory_list.min_x, 1)
         self.assertEqual(self.trajectory_list.max_x, 10)
@@ -191,32 +191,34 @@ class TestTrajectoryListMethods(unittest.TestCase):
         self.assertEqual(len(self.trajectory_list.norm_list), 4)
 
     def test_get_trajectory(self):
-        self.assertEqual(self.trajectory_list.get_trajectory(0)[:],
-                         Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None])[:])
+        self.assertEqual(self.trajectory_list.get_trajectory(0),
+                         Trajectory([(1, 1), (2, 2), None, None, (8, 8), (9, 10.5), None]))
 
     def test_number_of_spectra_sequence(self):
         self.assertEqual(self.trajectory_list.number_of_levels, 7)
 
-    def test_get_distances(self):
+    def test_get_euclidean_distances_slice(self):
         self.assertListEqual(self.trajectory_list.get_distances_euclidean(interval=[0, 3]),
-                             [[1.4142135623730951, 0.0, 0.0, 1.118033988749895],
-                              [0.7071067811865476, 0.0, 1.5811388300841898]])
+                             [[1.4142135623730951, 2.8284271247461903, 2.8284271247461903, 2.8284271247461903,
+                               2.692582403567252],
+                              [1.4142135623730951, 0.7071067811865476, 0.7071067811865476, 1.4142135623730951]])
 
-    def test_get_distances(self):
+    def test_get_euclidean_distances(self):
         self.assertListEqual(self.trajectory_list.get_distances_euclidean(),
-                             [[1.4142135623730951, 0.0, 0.0, 1.118033988749895],
+                             [[1.4142135623730951, 2.8284271247461903, 2.8284271247461903, 2.8284271247461903,
+                               2.692582403567252],
                               [],
-                              [2.23606797749979, 0.0, 0.0],
-                              [0.7071067811865476, 0.0, 1.5811388300841898]])
+                              [1.4142135623730951, 3.605551275463989, 3.605551275463989, 3.605551275463989],
+                              [1.4142135623730951, 0.7071067811865476, 0.7071067811865476, 1.4142135623730951]])
 
-    def test_get_distances(self):
+    def test_get_min_max_distances_slice(self):
         self.assertListEqual(self.trajectory_list.get_distances_min_max_norm(interval=[0, 3]),
                              [[(-0.1111111111111111, -0.08333333333333333),
                                (-0.1111111111111111, -0.20833333333333334)],
                               [(-0.1111111111111111, -0.08333333333333333),
                                (-0.1111111111111111, 0.08333333333333333)]])
 
-    def test_get_distances(self):
+    def test_get_min_max_distances(self):
         self.assertListEqual(self.trajectory_list.get_mean_angles_of_trajectory(),
                              [0.4048917862850834, None, None, 1.5707963267948966])
 
@@ -286,12 +288,15 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
                          Trajectory([(113.205, 4.405), (113.197, 4.399), (113.198, 4.399), (113.199, 4.395),
                                      (113.185, 4.396), (113.19, 4.394), None, None, None]))
 
-    def test_caltulation_of_lambda(self):
+    def test_calculation_of_lambda(self):
         self.assertAlmostEqual(self.trajectory_generator.calculate_lambda(), 0.3216, places=4)
 
-    def test_caltulation_of_noise_covariance(self):
+    def test_calculation_of_noise_covariance(self):
         self.assertAlmostEqual(self.trajectory_generator.calculate_noise_cov()[0][0], 4.892e-07, places=10)
         self.assertAlmostEqual(self.trajectory_generator.calculate_noise_cov()[1][1], 4.802e-07, places=10)
+
+    # def test_calculate_velocity(self):
+    #     self.assertEqual(self.trajectory_generator.calculate_velocity(), 0)
 
 
 if __name__ == '__main__':

@@ -185,10 +185,8 @@ class TrajectoryList:
         if normalization is None:
             for trajectory in self[interval]:
                 trajectory_dist = trajectory.get_distances()
-                one_trajectory_list = []
-                for i in range(len(trajectory_dist))[:-1]:
-                    one_trajectory_list.append(np.sqrt((trajectory_dist[i + 1][0] - trajectory_dist[i][0]) ** 2 +
-                                                       (trajectory_dist[i + 1][1] - trajectory_dist[i][1]) ** 2))
+                # one_trajectory_list = []
+                one_trajectory_list = [np.sqrt(x ** 2 + y ** 2) for x, y in trajectory_dist]
                 distances.append(one_trajectory_list)
 
         else:
