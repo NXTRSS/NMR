@@ -4,6 +4,7 @@ from os.path import isfile, join
 import re
 import operator
 import matplotlib.pyplot as plt
+import numbers
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
@@ -16,7 +17,8 @@ class TrajectoryGenerator:
 
     ####
     # Constructor
-    def __init__(self, number_of_levels=None, path_list=None, curving_lim=0.12, k0=5, ksi0=0.0002):
+    def __init__(self, number_of_levels=None, path_list=None, list_of_trajectory_list=None,
+                 curving_lim=0.12, k0=5, ksi0=0.0002):
         self.levels_number = number_of_levels
         self.lam = 0 #ratio of moving trajectories vs all trajectories in trajectories lists
         self.epsilon = 0
@@ -30,15 +32,37 @@ class TrajectoryGenerator:
         self.sigma = 0
         self.r = []
         self.path_list = path_list
-        self.list_of_trajectory_list = []
+        if list_of_trajectory_list is None:
+            self.list_of_trajectory_list = []
+        else:
+            self.list_of_trajectory_list = list_of_trajectory_list
         self.angle_dist = None
         self.angle_dist_params = [0, 0]
         self.gamma = 0
         self.curving_lim = curving_lim
         self.chem_shift_gen = None
 
+    def __iter__(self):
+        return self.list_of_trajectory_list.__iter__()
+
+    def __getitem__(self, index):
+        cls = type(self)
+        if isinstance(index, slice):
+            return cls(list_of_trajectories=self.list_of_trajectory_list[index])
+        elif isinstance(index, list) or isinstance(index, range):
+            if isinstance(index, range):
+                index = list(index)
+            return cls(list_of_trajectories=[self[idx] for idx in index])
+        elif isinstance(index, numbers.Integral):
+            return self.list_of_trajectory_list[index]
+        else:
+            msg = '{cls.__name__} indices must be integers'
+            raise TypeError(msg.format(cls=cls))
+    def __len__(self):
+        return len(self.list_of_trajectory_list)
+
     def train(self, verbose=False):
-        if self.list_of_trajectory_list==[]:
+        if not self.list_of_trajectory_list:
             self.list_of_trajectory_list = self.get_list_of_trajectory_list(verbose)
         self.lam = self.calculate_lambda()
         lam = self.lam
@@ -65,14 +89,14 @@ class TrajectoryGenerator:
     def calculate_lambda(self):
         n = 0
         N = 0
-        for trajectory_list in self.list_of_trajectory_list:
+        for trajectory_list in self:
             n += len(trajectory_list.get_moving_trajectories())
             N += len(trajectory_list)
         return float(n) / N
 
     def calculate_noise_cov(self):
         distances = list()
-        for trajectory_list in self.list_of_trajectory_list:
+        for trajectory_list in self:
             staying = trajectory_list.get_staying_trajectories()
             distances += trajectory_list.get_distances_min_max_norm(interval=staying)
         distances = flatten(distances)
