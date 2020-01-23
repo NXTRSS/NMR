@@ -245,6 +245,7 @@ class TestTrajectoryListMethods(unittest.TestCase):
 class TestTrajectoryGeneratorMethods(unittest.TestCase):
     def setUp(self) -> None:
         self.trajectory_generator = TrajectoryGenerator()
+        self.trajectory_generator.list_of_trajectory_list = self.trajectory_generator.get_list_of_trajectory_list()
 
     def test_get_path_list(self):
         self.assertListEqual(get_path_list('/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking'),
@@ -260,7 +261,11 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
                                      (113.185, 4.396), (113.19, 4.394), None, None, None]))
 
     def test_caltulation_of_lambda(self):
-        pass
+        self.assertAlmostEqual(self.trajectory_generator.calculate_lambda(), 0.3216, places=4)
+
+    def test_caltulation_of_noise_covariance(self):
+        self.assertAlmostEqual(self.trajectory_generator.calculate_noise_cov()[0][0], 4.892e-07, places=10)
+        self.assertAlmostEqual(self.trajectory_generator.calculate_noise_cov()[1][1], 4.802e-07, places=10)
 
 
 if __name__ == '__main__':

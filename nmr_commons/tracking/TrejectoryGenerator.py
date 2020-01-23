@@ -3,6 +3,7 @@ from os import listdir, walk
 from os.path import isfile, join
 import re
 import operator
+import matplotlib.pyplot as plt
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
@@ -25,7 +26,7 @@ class TrajectoryGenerator:
         self.k0 = k0
         self.ksi0 = ksi0
         self.ksi = 0
-        self.Ibeta = [[0, 0], [0, 0]]
+        self.Ibeta = [[0, 0], [0, 0]] # covariance matrix of noise. Noise calculated only on staying trajectories
         self.sigma = 0
         self.r = []
         self.path_list = path_list
@@ -42,7 +43,7 @@ class TrajectoryGenerator:
         self.lam = self.calculate_lambda()
         lam = self.lam
 
-        self.calculate_noise_cov()
+        self.Ibeta = self.calculate_noise_cov()
         self.calculate_velocity()
         self.calculate_angle_noise()
         if verbose:
@@ -68,6 +69,16 @@ class TrajectoryGenerator:
             n += len(trajectory_list.get_moving_trajectories())
             N += len(trajectory_list)
         return float(n) / N
+
+    def calculate_noise_cov(self):
+        distances = list()
+        for trajectory_list in self.list_of_trajectory_list:
+            staying = trajectory_list.get_staying_trajectories()
+            distances += trajectory_list.get_distances_min_max_norm(interval=staying)
+        distances = flatten(distances)
+        var = np.var(distances, axis=0)
+
+        return [[var[0], 0], [0, var[1]]]
 
 def get_path_list(general_path=None):
     if general_path is None:

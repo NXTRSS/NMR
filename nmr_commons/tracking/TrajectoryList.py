@@ -201,7 +201,7 @@ class TrajectoryList:
 
         return distances
 
-    def get_distances_min_max_norm(self, interval=None, normalization=None):
+    def get_distances_min_max_norm(self, interval=None):
         distances = []
         if interval is None:
             interval = range(len(self)) #take all trajectories in trajectories list
