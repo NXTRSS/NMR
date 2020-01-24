@@ -18,6 +18,8 @@ class TrajectoryGenerator:
     """Class for training and generating artificial list of Trajectories. This is a main class in data augmentation task
     for NMR protein purpose."""
 
+    GAMMA_DISTRIBUTION_PARAMETER_FOR_VELOCITY = 2
+    GAMMA_DISTRIBUTION_SHIFTING_PARAMETER_FOR_VELOCITY = 0
     ####
     # Constructor
     def __init__(self, number_of_levels=None, path_list=None, list_of_trajectory_list=None,
@@ -75,7 +77,7 @@ class TrajectoryGenerator:
         lam = self.lam
 
         self.Ibeta = self.calculate_noise_cov()
-        self.calculate_velocity()
+        self.sigma, self.k0, self.ksi0 = self.calculate_velocity_parameters()
         self.calculate_angle_noise()
         if verbose:
             print('Lambda: {:.4f}, k0: {:.4f}, ksi0: {:.4f}'.format(lam, self.k0, self.ksi0))
@@ -111,33 +113,29 @@ class TrajectoryGenerator:
 
         return [[var[0], 0], [0, var[1]]]
 
-    def calculate_velocity(self):
+    def calculate_velocity_parameters(self):
         ksi = []
         var = []
-        for trajectory_list in self:
+        for trajectory_idx, trajectory_list in enumerate(self):
             moving = trajectory_list.get_moving_trajectories()
             distances = trajectory_list.get_distances_euclidean(interval=moving)
             var += calculate_velocity_noise(distances)
-            distances = [x for row in distances for x in row]
+            distances = flatten(distances)
             try:
-                (alpha, loc, beta) = rv_continuous.fit(gamma, distances, floc=0, f0=2)
+                (alpha, loc, beta) = rv_continuous.fit(gamma, distances,
+                                                       floc=self.GAMMA_DISTRIBUTION_SHIFTING_PARAMETER_FOR_VELOCITY,
+                                                       f0=self.GAMMA_DISTRIBUTION_PARAMETER_FOR_VELOCITY)
                 ksi.append(beta)
             except:
-                print('Problem with fitting gamma distribution (velocity) in seq: %s' % path)
-            # print(alpha, loc)
+                print('Problem with fitting gamma distribution (velocity) in seq: %s' % self.path_list[trajectory_idx])
 
-            # n, bins, patches = plt.hist(distances, bins=15, normed=True)
-            # x= np.linspace(0, max(bins), 1000)
-            # y = gamma.pdf(x, alpha, loc=loc, scale=beta)
-            # plt.plot(x, y, 'r--')
-            # plt.show()
+        sigma = np.mean([x for x in var if not math.isnan(x)])
+        fit_alpha, fit_loc, fit_beta = rv_continuous.fit(gamma, ksi,
+                                                         floc=self.GAMMA_DISTRIBUTION_SHIFTING_PARAMETER_FOR_VELOCITY)
+        k0 = fit_alpha
+        ksi0 = fit_beta
+        return sigma, k0, ksi0
 
-        # plt.hist(var, bins=50)
-        self.sigma = np.mean([x for x in var if not math.isnan(x)])
-        # print(self.sigma)
-        fit_alpha, fit_loc, fit_beta = rv_continuous.fit(gamma, ksi, floc=0)
-        self.k0 = fit_alpha
-        self.ksi0 = fit_beta
 
 def calculate_velocity_noise(distances):
     var = []

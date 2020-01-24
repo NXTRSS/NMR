@@ -203,6 +203,12 @@ class TestTrajectoryListMethods(unittest.TestCase):
                                2.692582403567252],
                               [1.4142135623730951, 0.7071067811865476, 0.7071067811865476, 1.4142135623730951]])
 
+    def test_get_euclidean_distances_slice_norm_list(self):
+        self.assertListEqual(self.trajectory_list.get_distances_euclidean(interval=[0, 3], normalization=True),
+                             [[0.1388888888888889, 0.2777777777777778, 0.2777777777777778, 0.2777777777777778,
+                               0.23611111111111102],
+                              [0.1388888888888889, 0.06944444444444445, 0.06944444444444445, 0.1388888888888889]])
+
     def test_get_euclidean_distances(self):
         self.assertListEqual(self.trajectory_list.get_distances_euclidean(),
                              [[1.4142135623730951, 2.8284271247461903, 2.8284271247461903, 2.8284271247461903,
@@ -295,8 +301,9 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
         self.assertAlmostEqual(self.trajectory_generator.calculate_noise_cov()[0][0], 4.892e-07, places=10)
         self.assertAlmostEqual(self.trajectory_generator.calculate_noise_cov()[1][1], 4.802e-07, places=10)
 
-    # def test_calculate_velocity(self):
-    #     self.assertEqual(self.trajectory_generator.calculate_velocity(), 0)
+    def test_calculate_velocity(self):
+        self.assertEqual(self.trajectory_generator.calculate_velocity_parameters(),
+                         (0.020282308758846408, 5.7948943933847685, 0.0035490141696930266))
 
 
 if __name__ == '__main__':
