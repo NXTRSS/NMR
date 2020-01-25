@@ -255,6 +255,10 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
         self.trajectory_generator = TrajectoryGenerator()
         self.trajectory_generator.list_of_trajectory_list = self.trajectory_generator.get_list_of_trajectory_list()
 
+        self.trajectory_generator_small = TrajectoryGenerator()
+        self.trajectory_generator_small.list_of_trajectory_list = \
+            self.trajectory_generator.get_list_of_trajectory_list()[::2]
+
     def test_len_methods(self):
         self.assertEqual(len(self.trajectory_generator), 11)
 
@@ -304,6 +308,14 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
     def test_calculate_velocity(self):
         self.assertEqual(self.trajectory_generator.calculate_velocity_parameters(),
                          (0.020282308758846408, 5.7948943933847685, 0.0035490141696930266))
+
+    def test_calculate_velocity_small(self):
+        self.assertEqual(self.trajectory_generator_small.calculate_velocity_parameters(),
+                         (0.017771681084448016, 3.741816966884609, 0.005033442874726042))
+
+    def test_calculate_angle_noice(self):
+        self.assertEqual(self.trajectory_generator.calculate_angle_noise(),
+                         (0.017771681084448016, 3.741816966884609, 0.005033442874726042))
 
 
 if __name__ == '__main__':

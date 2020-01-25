@@ -5,8 +5,9 @@ import re
 import operator
 import matplotlib.pyplot as plt
 import numbers
-from scipy.stats import rv_continuous, gamma
+from scipy.stats import rv_continuous, gamma, cauchy, kstest
 import math
+import warnings
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
@@ -78,7 +79,7 @@ class TrajectoryGenerator:
 
         self.Ibeta = self.calculate_noise_cov()
         self.sigma, self.k0, self.ksi0 = self.calculate_velocity_parameters()
-        self.calculate_angle_noise()
+        self.angle_dist, self.angle_dist_params = self.calculate_angle_noise()
         if verbose:
             print('Lambda: {:.4f}, k0: {:.4f}, ksi0: {:.4f}'.format(lam, self.k0, self.ksi0))
         # self.k0 = 5
@@ -135,6 +136,185 @@ class TrajectoryGenerator:
         k0 = fit_alpha
         ksi0 = fit_beta
         return sigma, k0, ksi0
+
+    def calculate_angle_noise(self, verbose=None):
+        angles = []
+        for trajectory_idx, trajectory_list in enumerate(self):
+            trajectory_list.normalize()
+            if trajectory_list.number_of_levels >= 5:
+                moving = trajectory_list.get_moving_trajectories()
+                levels = trajectory_list.number_of_levels
+
+                for trajectory_id in moving:
+                    norm_trajectory = trajectory_list.norm_list[trajectory_id]
+                    start = 0
+                    start_bool = 0
+                    while start < levels-4:
+                        a = filter(None, norm_trajectory[start+0:start+4])
+                        if len(a) == 4:
+                            ax, ay = zip(*a)
+                            v1 = [np.mean(ax[0:2]), np.mean(ay[0:2])]
+                            v2 = [np.mean(ax[2:4]), np.mean(ay[2:4])]
+                            v = tuple([v2[0] - v1[0], v2[1] - v1[1]])
+                            if (v[0] != 0 or v[1] != 0):
+                                start_bool = 1
+                                break
+                        start += 1
+
+                    end = levels
+                    end_bool = 0
+                    while end > 5:
+                        b = filter(None, norm_trajectory[end - 4:end])
+                        if len(b) == 4:
+                            bx, by = zip(*b)
+                            u1 = [np.mean(bx[0:2]), np.mean(by[0:2])]
+                            u2 = [np.mean(bx[2:4]), np.mean(by[2:4])]
+                            u = tuple([u2[0] - u1[0], u2[1] - u1[1]])
+                            if (u[0] != 0 or u[1] != 0):
+                                end_bool = 1
+                                break
+                        end -= 1
+
+
+
+                    if start_bool and end_bool:
+                        angle = TrajectoryGenerator.angle_between(v,u)
+
+                        # def angle(pt1, pt2):
+                        #     x1, y1 = pt1
+                        #     x2, y2 = pt2
+                        #     inner_product = x1 * x2 + y1 * y2
+                        #     len1 = math.hypot(x1, y1)
+                        #     len2 = math.hypot(x2, y2)
+                        #     return math.copysign(math.acos(inner_product / (len1 * len2)), y2)
+
+                        angles.append((angle)/(end-start-4))
+
+                        # plt.plot(ax, ay, 'bo')
+                        # plt.plot([v1[0], v2[0]], [v1[1], v2[1]])
+                        # plt.plot(v1[0], v1[1], 'go')
+                        # plt.plot(bx, by, 'ro')
+                        # plt.plot([u1[0], u2[0]], [u1[1], u2[1]], 'r')
+                        # plt.plot(u1[0], u1[1], 'go')
+                        # plt.show()
+                        # plt.plot([0,v[0]],[0,v[1]],'r')
+                        # plt.plot([0,u[0]], [0,u[1]], 'g')
+                        # plt.show()
+                        if ((angle)/(end-start-4)) == 0:
+                            # plt.plot(ax, ay, 'bo')
+                            # plt.plot([v1[0], v2[0]], [v1[1], v2[1]])
+                            # plt.plot(v1[0], v1[1], 'go')
+                            # plt.plot(bx, by, 'ro')
+                            # plt.plot([u1[0], u2[0]], [u1[1], u2[1]], 'r')
+                            # plt.plot(u1[0], u1[1], 'go')
+                            # plt.show()
+                            # plt.plot([0,v[0]],[0,v[1]],'r')
+                            # plt.plot([0,u[0]], [0,u[1]], 'g')
+                            # plt.show()
+                            if verbose:
+                                print(trajectory_idx, trajectory_id)
+
+
+        angles = [angle % np.pi if angle > 0 else -(-angle % np.pi) for angle in angles]
+
+        angles_array = np.asarray(angles)
+
+        # angles = map(abs, angles)
+
+        # filtered_angles = filter(lambda x: x > self.curving_lim or x < -self.curving_lim, angles)
+
+        # filtered_angles = map(abs, filtered_angles)
+        filtered_angles = angles
+        if verbose:
+            print(sum(angles_array == 0))
+
+        filtered_angles = filter(lambda x: x != 0, angles)
+        filtered_angles = np.sort(np.asarray(filtered_angles))
+
+        filtered_angles = filtered_angles[0.05*len(filtered_angles):0.95*len(filtered_angles)]
+
+        # filtered_angles_shift = (filtered_angles - np.mean(filtered_angles)) / (np.std(filtered_angles))
+        #
+        # cauchy_params = scipy.stats.cauchy.fit(filtered_angles, floc=0)
+        #
+        # filtered_angles_cauchy = (filtered_angles - cauchy_params[0])/cauchy_params[1]
+        #
+        # X = np.linspace(-0.5, 0.5, 1000)
+        # Y = scipy.stats.cauchy.pdf(X, loc=cauchy_params[0], scale=cauchy_params[1])
+        # plt.plot(X, Y, 'r--')
+        #
+        # test_resp = scipy.stats.kstest(filtered_angles_cauchy, 'cauchy')
+        #
+        # print (test_resp)
+        # #
+        # # test_resp = scipy.stats.kstest(scipy.stats.cauchy.rvs(size=100), 'cauchy')
+        # #
+        # # print(test_resp)
+        #
+        # gauss_params = scipy.stats.norm.fit(filtered_angles, loc=0)
+        # filtered_angles_gauss = (filtered_angles - gauss_params[0])/gauss_params[1]
+        #
+        # X = np.linspace(-0.5, 0.5, 1000)
+        # Y = scipy.stats.norm.pdf(X, loc=gauss_params[0], scale=gauss_params[1])
+        # plt.plot(X, Y, 'g--')
+        #
+        # test_resp = scipy.stats.kstest(filtered_angles_gauss, 'norm')
+        #
+        # print (test_resp)
+
+        # test_resp = scipy.stats.kstest(scipy.stats.norm.rvs(size=100), 'norm')
+        # print(test_resp)
+
+
+
+        DISTRIBUTIONS = [cauchy]
+
+        mark = []
+
+        for i, distribution in enumerate(DISTRIBUTIONS):
+            # print(distribution.name)
+            # test_resp = scipy.stats.kstest(filtered_angles, 'alpha')
+            name = distribution.name
+            try:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('ignore')
+
+                params = distribution.fit(filtered_angles, floc=0)
+                try:
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('ignore')
+
+                    test_resp = kstest((filtered_angles-params[0])/params[1], name)
+                except:
+                    test_resp = [0, 0]
+            except:
+                test_resp = [0, 0]
+
+
+            mark.append([i, test_resp[0], test_resp[1]])
+
+        mark_array = np.array(mark)
+        maks = np.max(mark_array[:,-1])
+        mark_v = list(mark_array[:,-1])
+        p = mark_v.index(maks)
+
+        # print(mark[p], DISTRIBUTIONS[p])
+
+        best_dist_params = DISTRIBUTIONS[p].fit(filtered_angles, floc=0)
+        X = np.linspace(-0.5, 0.5, 1000)
+        Y = DISTRIBUTIONS[p].pdf(X, loc=best_dist_params[0], scale=best_dist_params[1])
+        plt.plot(X, Y, 'y--')
+
+        print('Angles will be draw from %s distribution with loc paramter %f and scale paramter %f\n'
+              % (DISTRIBUTIONS[p].name, best_dist_params[0], best_dist_params[1]))
+        print('KS test p-value for %s distribution was %f' % (DISTRIBUTIONS[p].name, maks))
+
+        angle_dist = DISTRIBUTIONS[p]
+        angle_dist_params = best_dist_params
+
+        n, bins, patches = plt.hist(filtered_angles, bins=50, normed=True)
+        plt.close()
+        return angle_dist, angle_dist_params
 
 
 def calculate_velocity_noise(distances):
