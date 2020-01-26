@@ -313,9 +313,13 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
         self.assertEqual(self.trajectory_generator_small.calculate_velocity_parameters(),
                          (0.017771681084448016, 3.741816966884609, 0.005033442874726042))
 
-    def test_calculate_angle_noice(self):
-        self.assertEqual(self.trajectory_generator.calculate_angle_noise(),
-                         (0.017771681084448016, 3.741816966884609, 0.005033442874726042))
+    def test_calculate_angle_noise_old(self):
+        self.assertEqual(self.trajectory_generator.calculate_angle_noise_old()[1],
+                         (0, 0.019123607543297214))
+
+    def test_calculate_angle_noise(self):
+        self.assertEqual(self.trajectory_generator.calculate_angle_noise()[1],
+                         (0, 0.019123607543297214))
 
 
 if __name__ == '__main__':
