@@ -49,8 +49,10 @@ class TrajectoryGenerator:
             self.list_of_trajectory_list = list_of_trajectory_list
         self.angle_dist = None
         self.angle_dist_params = [0, 0]
+        self.curving_ratio_dist = None
+        self.curving_ratio_params = [0, 0]
         self.gamma = 0
-        self.curving_lim = curving_lim
+        # self.curving_lim = curving_lim
         self.chem_shift_gen = None
 
     def __iter__(self):
@@ -314,7 +316,7 @@ class TrajectoryGenerator:
         plt.close()
         return angle_dist, angle_dist_params
 
-    def calculate_angle_noise(self, verbose=None):
+    def calculate_angle_noise(self, verbose=False):
         angles = []
         ratio_curving_trajectories = []
         for trajectory_idx, trajectory_list in enumerate(self):
@@ -341,101 +343,87 @@ class TrajectoryGenerator:
                         # plt.show()
                 ratio_curving_trajectories.append(trajectory_curving_number/trajectory_moving_number)
 
-
         angles = [angle % np.pi if angle > 0 else -(-angle % np.pi) for angle in angles]
 
-        filtered_angles = list(filter(lambda x: x != 0, angles))
-        filtered_angles = np.sort(np.asarray(filtered_angles))
+        filtered_angles = np.sort(np.asarray(angles))
 
         lower_quantile = self.DROP_QUANTILE_FROM_ANGLES/2
         upper_quantile = 1-lower_quantile
 
         filtered_angles = filtered_angles[int(lower_quantile*len(filtered_angles)):int(upper_quantile*len(filtered_angles))]
 
-        # filtered_angles_shift = (filtered_angles - np.mean(filtered_angles)) / (np.std(filtered_angles))
-        #
-        # cauchy_params = scipy.stats.cauchy.fit(filtered_angles, floc=0)
-        #
-        # filtered_angles_cauchy = (filtered_angles - cauchy_params[0])/cauchy_params[1]
-        #
-        # X = np.linspace(-0.5, 0.5, 1000)
-        # Y = scipy.stats.cauchy.pdf(X, loc=cauchy_params[0], scale=cauchy_params[1])
-        # plt.plot(X, Y, 'r--')
-        #
-        # test_resp = scipy.stats.kstest(filtered_angles_cauchy, 'cauchy')
-        #
-        # print (test_resp)
-        # #
-        # # test_resp = scipy.stats.kstest(scipy.stats.cauchy.rvs(size=100), 'cauchy')
-        # #
-        # # print(test_resp)
-        #
-        # gauss_params = scipy.stats.norm.fit(filtered_angles, loc=0)
-        # filtered_angles_gauss = (filtered_angles - gauss_params[0])/gauss_params[1]
-        #
-        # X = np.linspace(-0.5, 0.5, 1000)
-        # Y = scipy.stats.norm.pdf(X, loc=gauss_params[0], scale=gauss_params[1])
-        # plt.plot(X, Y, 'g--')
-        #
-        # test_resp = scipy.stats.kstest(filtered_angles_gauss, 'norm')
-        #
-        # print (test_resp)
-        #
-        # test_resp = scipy.stats.kstest(scipy.stats.norm.rvs(size=100), 'norm')
-        # print(test_resp)
-        # plt.show()
+        angle_dist, angle_dist_params = fit_distribution(filtered_angles, floc=0, objective_name='angles', verbose=verbose)
 
+        ratio_curving_trajectories = np.sort(np.array(ratio_curving_trajectories))
+        ratio_curving_trajectories_filtered = ratio_curving_trajectories[
+                          int(lower_quantile * len(ratio_curving_trajectories)):int(upper_quantile * len(ratio_curving_trajectories))]
 
+        curving_ratio_dist, curving_ratio_dist_params = fit_distribution(ratio_curving_trajectories_filtered, objective_name='curving ratio', verbose=verbose)
 
-        DISTRIBUTIONS = [cauchy, norm]
+        return angle_dist, angle_dist_params, curving_ratio_dist, curving_ratio_dist_params
 
-        mark = []
+def fit_distribution(sample_for_fitting, floc=None, objective_name='not known', distributions=None, verbose=False):
+    if distributions==None:
+        distributions = [cauchy, norm]
 
-        for i, distribution in enumerate(DISTRIBUTIONS):
-            # print(distribution.name)
-            # test_resp = scipy.stats.kstest(filtered_angles, 'alpha')
-            name = distribution.name
+    distribution_fitting_log = [None] * len(distributions)
+
+    for i, distribution in enumerate(distributions):
+        name = distribution.name
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore')
+            if floc is None:
+                params = distribution.fit(sample_for_fitting)
+            else:
+                params = distribution.fit(sample_for_fitting, floc=floc)
             try:
                 with warnings.catch_warnings():
                     warnings.filterwarnings('ignore')
 
-                params = distribution.fit(filtered_angles, floc=0)
-                try:
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings('ignore')
-
-                    test_resp = kstest((filtered_angles-params[0])/params[1], name)
-                except:
-                    test_resp = [0, 0]
+                test_resp = kstest((sample_for_fitting - params[0]) / params[1], name)
             except:
-                test_resp = [0, 0]
+                print('KS-test for {} distribution failed, {} case'.format(name, objective_name))
+                test_resp = [None, None]
+        except:
+            print('Fitting distribution {} for angles failed, {} case'.format(name, objective_name))
+            test_resp = [None, None]
+        if None not in test_resp and verbose:
+            plt.hist(sample_for_fitting, density=True)
+            X = np.linspace(-1.5, 1.5, 1000)
+            Y = distribution.pdf(X, loc=params[0], scale=params[1])
+            plt.plot(X, Y, 'y--')
+            plt.title('Histogram of {} and fitted {} distribution'.format(objective_name, name))
+            plt.show()
 
+        distribution_fitting_log[i] = (test_resp[0], test_resp[1])
 
-            mark.append([i, test_resp[0], test_resp[1]])
+    distribution_array = np.array(distribution_fitting_log)
+    max_p_value = np.max(distribution_array[:, -1])
+    p_values = list(distribution_array[:, -1])
+    p = p_values.index(max_p_value)
 
-        mark_array = np.array(mark)
-        maks = np.max(mark_array[:,-1])
-        mark_v = list(mark_array[:,-1])
-        p = mark_v.index(maks)
+    if floc is None:
+        best_dist_params = distributions[p].fit(sample_for_fitting)
+    else:
+        best_dist_params = distributions[p].fit(sample_for_fitting, floc=0)
 
-        # print(mark[p], DISTRIBUTIONS[p])
-
-        best_dist_params = DISTRIBUTIONS[p].fit(filtered_angles, floc=0)
-        X = np.linspace(-0.5, 0.5, 1000)
-        Y = DISTRIBUTIONS[p].pdf(X, loc=best_dist_params[0], scale=best_dist_params[1])
+    if verbose:
+        plt.hist(sample_for_fitting, bins=10, density=True)
+        X = np.linspace(-1.5, 1.5, 1000)
+        Y = distributions[p].pdf(X, loc=best_dist_params[0], scale=best_dist_params[1])
         plt.plot(X, Y, 'y--')
+        plt.title('Histogram of {} and fitted {} as best distribution'.format(objective_name, distributions[p].name))
+        plt.show()
 
-        print('Angles will be draw from %s distribution with loc paramter %f and scale paramter %f\n'
-              % (DISTRIBUTIONS[p].name, best_dist_params[0], best_dist_params[1]))
-        print('KS test p-value for %s distribution was %f' % (DISTRIBUTIONS[p].name, maks))
-
-        angle_dist = DISTRIBUTIONS[p]
-        angle_dist_params = best_dist_params
-
-        n, bins, patches = plt.hist(filtered_angles, bins=50, density=True)
+        n, bins, patches = plt.hist(sample_for_fitting, bins=50, density=True)
         plt.close()
-        return angle_dist, angle_dist_params
 
+        print('{} will be draw from {} distribution with loc parameter {} and scale parameter {}\n'
+              .format(objective_name, distributions[p].name, best_dist_params[0], best_dist_params[1]))
+        print('KS test p-value for {} distribution was {}'.format(distributions[p].name, max_p_value))
+
+    return distributions[p], best_dist_params
 
 def angle_between(v1, v2):
     """ Returns the angle in radians between vectors 'v1' and 'v2'    """
