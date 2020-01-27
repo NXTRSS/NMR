@@ -5,7 +5,7 @@ import re
 import operator
 import matplotlib.pyplot as plt
 import numbers
-from scipy.stats import rv_continuous, gamma, cauchy, kstest
+from scipy.stats import rv_continuous, gamma, cauchy, norm, kstest
 import math
 import warnings
 import numpy.linalg as la
@@ -24,6 +24,8 @@ class TrajectoryGenerator:
     GAMMA_DISTRIBUTION_PARAMETER_FOR_VELOCITY = 2
     GAMMA_DISTRIBUTION_SHIFTING_PARAMETER_FOR_VELOCITY = 0
     MINIMAL_AVERAGE_ANGLE_IN_ONE_TRAJECTORY = 0.01*np.pi*2
+    DROP_QUANTILE_FROM_ANGLES = 0.2
+    DROP_QUANTILE_OF_CURVING_TRAJECTORIES_RATIO = 0.2
     ####
     # Constructor
     def __init__(self, number_of_levels=None, path_list=None, list_of_trajectory_list=None,
@@ -314,12 +316,14 @@ class TrajectoryGenerator:
 
     def calculate_angle_noise(self, verbose=None):
         angles = []
+        ratio_curving_trajectories = []
         for trajectory_idx, trajectory_list in enumerate(self):
             trajectory_list.normalize()
             if trajectory_list.number_of_levels >= 5:
                 moving = trajectory_list.get_moving_trajectories()
                 levels = trajectory_list.number_of_levels
-
+                trajectory_moving_number = len(moving)
+                trajectory_curving_number = 0
                 for trajectory_id in moving:
                     norm_trajectory = trajectory_list.norm_list[trajectory_id]
                     one_trajectory_angles = []
@@ -331,28 +335,22 @@ class TrajectoryGenerator:
                                  norm_trajectory.get_y(idx+2) - norm_trajectory.get_y(idx+1))
                             one_trajectory_angles.append(angle_between(v, u))
                     if np.mean(one_trajectory_angles) > self.MINIMAL_AVERAGE_ANGLE_IN_ONE_TRAJECTORY:
-                        # angles.insert(one_trajectory_angles)
-                        TrajectoryList(list_of_trajectories=[norm_trajectory]).visualize_2d()
-                        plt.show()
+                        trajectory_curving_number += 1
+                        angles.extend(one_trajectory_angles)
+                        # TrajectoryList(list_of_trajectories=[norm_trajectory]).visualize_2d()
+                        # plt.show()
+                ratio_curving_trajectories.append(trajectory_curving_number/trajectory_moving_number)
 
 
         angles = [angle % np.pi if angle > 0 else -(-angle % np.pi) for angle in angles]
 
-        angles_array = np.asarray(angles)
-
-        # angles = map(abs, angles)
-
-        # filtered_angles = filter(lambda x: x > self.curving_lim or x < -self.curving_lim, angles)
-
-        # filtered_angles = map(abs, filtered_angles)
-        filtered_angles = angles
-        if verbose:
-            print(sum(angles_array == 0))
-
         filtered_angles = list(filter(lambda x: x != 0, angles))
         filtered_angles = np.sort(np.asarray(filtered_angles))
 
-        filtered_angles = filtered_angles[int(0.05*len(filtered_angles)):int(0.95*len(filtered_angles))]
+        lower_quantile = self.DROP_QUANTILE_FROM_ANGLES/2
+        upper_quantile = 1-lower_quantile
+
+        filtered_angles = filtered_angles[int(lower_quantile*len(filtered_angles)):int(upper_quantile*len(filtered_angles))]
 
         # filtered_angles_shift = (filtered_angles - np.mean(filtered_angles)) / (np.std(filtered_angles))
         #
@@ -389,7 +387,7 @@ class TrajectoryGenerator:
 
 
 
-        DISTRIBUTIONS = [cauchy]
+        DISTRIBUTIONS = [cauchy, norm]
 
         mark = []
 
