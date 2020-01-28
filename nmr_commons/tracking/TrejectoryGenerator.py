@@ -15,6 +15,11 @@ from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
 from nmr_environment import Settings
 from nmr_commons.utils import flatten
+from chemical_shift_assignment.components.ChemicalShiftGenerator import ChemicalShiftGenerator
+from nmr_commons.database.BMRBDatabase import BMRBDatabase
+from nmr_commons.peak_picking.PeakList import PeakList
+from spectrum_generator.components.PeakListGenerator import PeakListGenerator as PLGen, PeakListGenParams
+from nmr_commons.spectrum.Spectrum import Spectrum
 
 
 class TrajectoryGenerator:
@@ -91,6 +96,43 @@ class TrajectoryGenerator:
             print('Lambda: {:.4f}, k0: {:.4f}, ksi0: {:.4f}'.format(lam, self.k0, self.ksi0))
         # self.k0 = 5
         # self.ksi0 = 0.0002
+
+    def generate(self, bmrb_id, peak_gen_params=None, extra_shifts_distr=None):
+        """
+
+        Args:
+            bmrb_id: int, BMRB protein file ID
+            peak_gen_params: PeakListGenParams object
+            extra_shifts_distr: one of EmpiricalDistribution.{LAPLACE, GAUSS, UNIFORM, ALWAYS_MEDIAN, ALWAYS_MEAN}
+        Returns:
+
+        """
+        if peak_gen_params is None:
+            peak_gen_params = PeakListGenParams()
+        else:
+            peak_gen_params = peak_gen_params.copy()
+
+        shifts = BMRBDatabase.parse_bmrb_file('{}bmr{}.str'.format(Settings.BMRB_ROOT, bmrb_id))
+
+        temp_params = PeakListGenParams().incomplete(peak_gen_params.incompleteProb)
+        peaks, _, ideal_num_peaks = PLGen.generate_peak_list(shifts, Spectrum.NHSQC, temp_params, verbose=False)
+        peaks.set_responses(1)
+
+        peak_gen_params.incomplete(1)
+        if self.chem_shift_gen is None:
+            self.chem_shift_gen = ChemicalShiftGenerator(Settings.CHEMICAL_SHIFT_GENERATOR_PATH)
+
+        for amino_acid in shifts.sequence:
+            if amino_acid.getOneLetterCode() == 'U':
+                amino_acid.chemicalShifts = []
+        extra_shifts = [self.chem_shift_gen.generateShiftsForSequence(shifts, extra_shifts_distr)
+                        for _ in range(peak_gen_params.extraTrueMax)]
+        extra_peaks, _, _ = PLGen.generate_peak_list(shifts, Spectrum.NHSQC, peak_gen_params, extra_shifts, verbose=False)
+        extra_peaks.set_responses(0)
+        all_peaks = PeakList.get_concatenation(peaks, extra_peaks)
+        print('\tPeaks: {:>4} ({:>6.2f}% of original)'.format(len(all_peaks), 100. * len(all_peaks) / ideal_num_peaks), end=' ')
+        res = self.generate_trajectories(all_peaks)
+        return res
 
     def get_list_of_trajectory_list(self, verbose=False):
         if self.path_list is None:
