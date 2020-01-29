@@ -28,9 +28,10 @@ class TrajectoryGenerator:
 
     GAMMA_DISTRIBUTION_PARAMETER_FOR_VELOCITY = 2
     GAMMA_DISTRIBUTION_SHIFTING_PARAMETER_FOR_VELOCITY = 0
-    MINIMAL_AVERAGE_ANGLE_IN_ONE_TRAJECTORY = 0.01*np.pi*2
+    MINIMAL_AVERAGE_ANGLE_IN_ONE_TRAJECTORY = 0.01 * np.pi * 2
     DROP_QUANTILE_FROM_ANGLES = 0.2
     DROP_QUANTILE_OF_CURVING_TRAJECTORIES_RATIO = 0.2
+
     ####
     # Constructor
     def __init__(self, number_of_levels=None, path_list=None, list_of_trajectory_list=None,
@@ -127,10 +128,12 @@ class TrajectoryGenerator:
                 amino_acid.chemicalShifts = []
         extra_shifts = [self.chem_shift_gen.generateShiftsForSequence(shifts, extra_shifts_distr)
                         for _ in range(peak_gen_params.extraTrueMax)]
-        extra_peaks, _, _ = PLGen.generate_peak_list(shifts, Spectrum.NHSQC, peak_gen_params, extra_shifts, verbose=False)
+        extra_peaks, _, _ = PLGen.generate_peak_list(shifts, Spectrum.NHSQC, peak_gen_params, extra_shifts,
+                                                     verbose=False)
         extra_peaks.set_responses(0)
         all_peaks = PeakList.get_concatenation(peaks, extra_peaks)
-        print('\tPeaks: {:>4} ({:>6.2f}% of original)'.format(len(all_peaks), 100. * len(all_peaks) / ideal_num_peaks), end=' ')
+        print('\tPeaks: {:>4} ({:>6.2f}% of original)'.format(len(all_peaks), 100. * len(all_peaks) / ideal_num_peaks),
+              end=' ')
         res = self.generate_trajectories(all_peaks)
         return res
 
@@ -198,8 +201,8 @@ class TrajectoryGenerator:
                     norm_trajectory = trajectory_list.norm_list[trajectory_id]
                     start = 0
                     start_bool = 0
-                    while start < levels-4:
-                        a = list(filter(None, norm_trajectory[start+0:start+4]))
+                    while start < levels - 4:
+                        a = list(filter(None, norm_trajectory[start + 0:start + 4]))
                         if len(a) == 4:
                             ax, ay = zip(*a)
                             v1 = [np.mean(ax[0:2]), np.mean(ay[0:2])]
@@ -224,12 +227,10 @@ class TrajectoryGenerator:
                                 break
                         end -= 1
 
-
-
                     if start_bool and end_bool:
                         angle = angle_between(v, u)
 
-                        angles.append((angle)/(end-start-4))
+                        angles.append((angle) / (end - start - 4))
 
                         # plt.plot(ax, ay, 'bo')
                         # plt.plot([v1[0], v2[0]], [v1[1], v2[1]])
@@ -241,7 +242,7 @@ class TrajectoryGenerator:
                         # plt.plot([0,v[0]],[0,v[1]],'r')
                         # plt.plot([0,u[0]], [0,u[1]], 'g')
                         # plt.show()
-                        if ((angle)/(end-start-4)) == 0:
+                        if ((angle) / (end - start - 4)) == 0:
                             # plt.plot(ax, ay, 'bo')
                             # plt.plot([v1[0], v2[0]], [v1[1], v2[1]])
                             # plt.plot(v1[0], v1[1], 'go')
@@ -254,7 +255,6 @@ class TrajectoryGenerator:
                             # plt.show()
                             if verbose:
                                 print(trajectory_idx, trajectory_id)
-
 
         angles = [angle % np.pi if angle > 0 else -(-angle % np.pi) for angle in angles]
 
@@ -272,7 +272,7 @@ class TrajectoryGenerator:
         filtered_angles = list(filter(lambda x: x != 0, angles))
         filtered_angles = np.sort(np.asarray(filtered_angles))
 
-        filtered_angles = filtered_angles[int(0.05*len(filtered_angles)):int(0.95*len(filtered_angles))]
+        filtered_angles = filtered_angles[int(0.05 * len(filtered_angles)):int(0.95 * len(filtered_angles))]
 
         # filtered_angles_shift = (filtered_angles - np.mean(filtered_angles)) / (np.std(filtered_angles))
         #
@@ -307,8 +307,6 @@ class TrajectoryGenerator:
         # print(test_resp)
         # plt.show()
 
-
-
         DISTRIBUTIONS = [cauchy]
 
         mark = []
@@ -326,18 +324,17 @@ class TrajectoryGenerator:
                     with warnings.catch_warnings():
                         warnings.filterwarnings('ignore')
 
-                    test_resp = kstest((filtered_angles-params[0])/params[1], name)
+                    test_resp = kstest((filtered_angles - params[0]) / params[1], name)
                 except:
                     test_resp = [0, 0]
             except:
                 test_resp = [0, 0]
 
-
             mark.append([i, test_resp[0], test_resp[1]])
 
         mark_array = np.array(mark)
-        maks = np.max(mark_array[:,-1])
-        mark_v = list(mark_array[:,-1])
+        maks = np.max(mark_array[:, -1])
+        mark_v = list(mark_array[:, -1])
         p = mark_v.index(maks)
 
         # print(mark[p], DISTRIBUTIONS[p])
@@ -347,9 +344,9 @@ class TrajectoryGenerator:
         Y = DISTRIBUTIONS[p].pdf(X, loc=best_dist_params[0], scale=best_dist_params[1])
         plt.plot(X, Y, 'y--')
 
-        print('Angles will be draw from %s distribution with loc paramter %f and scale paramter %f\n'
-              % (DISTRIBUTIONS[p].name, best_dist_params[0], best_dist_params[1]))
-        print('KS test p-value for %s distribution was %f' % (DISTRIBUTIONS[p].name, maks))
+        # print('Angles will be draw from %s distribution with loc paramter %f and scale paramter %f\n'
+        #       % (DISTRIBUTIONS[p].name, best_dist_params[0], best_dist_params[1]))
+        # print('KS test p-value for %s distribution was %f' % (DISTRIBUTIONS[p].name, maks))
 
         angle_dist = DISTRIBUTIONS[p]
         angle_dist_params = best_dist_params
@@ -371,41 +368,47 @@ class TrajectoryGenerator:
                 for trajectory_id in moving:
                     norm_trajectory = trajectory_list.norm_list[trajectory_id]
                     one_trajectory_angles = []
-                    for idx in range(levels-2):
-                        if None not in norm_trajectory[idx:idx+3]:
-                            v = (norm_trajectory.get_x(idx+1) - norm_trajectory.get_x(idx),
-                                 norm_trajectory.get_y(idx+1) - norm_trajectory.get_y(idx))
-                            u = (norm_trajectory.get_x(idx+2) - norm_trajectory.get_x(idx+1),
-                                 norm_trajectory.get_y(idx+2) - norm_trajectory.get_y(idx+1))
+                    for idx in range(levels - 2):
+                        if None not in norm_trajectory[idx:idx + 3]:
+                            v = (norm_trajectory.get_x(idx + 1) - norm_trajectory.get_x(idx),
+                                 norm_trajectory.get_y(idx + 1) - norm_trajectory.get_y(idx))
+                            u = (norm_trajectory.get_x(idx + 2) - norm_trajectory.get_x(idx + 1),
+                                 norm_trajectory.get_y(idx + 2) - norm_trajectory.get_y(idx + 1))
                             one_trajectory_angles.append(angle_between(v, u))
                     if np.mean(one_trajectory_angles) > self.MINIMAL_AVERAGE_ANGLE_IN_ONE_TRAJECTORY:
                         trajectory_curving_number += 1
                         angles.extend(one_trajectory_angles)
                         # TrajectoryList(list_of_trajectories=[norm_trajectory]).visualize_2d()
                         # plt.show()
-                ratio_curving_trajectories.append(trajectory_curving_number/trajectory_moving_number)
+                ratio_curving_trajectories.append(trajectory_curving_number / trajectory_moving_number)
 
         angles = [angle % np.pi if angle > 0 else -(-angle % np.pi) for angle in angles]
 
         filtered_angles = np.sort(np.asarray(angles))
 
-        lower_quantile = self.DROP_QUANTILE_FROM_ANGLES/2
-        upper_quantile = 1-lower_quantile
+        lower_quantile = self.DROP_QUANTILE_FROM_ANGLES / 2
+        upper_quantile = 1 - lower_quantile
 
-        filtered_angles = filtered_angles[int(lower_quantile*len(filtered_angles)):int(upper_quantile*len(filtered_angles))]
+        filtered_angles = filtered_angles[
+                          int(lower_quantile * len(filtered_angles)):int(upper_quantile * len(filtered_angles))]
 
-        angle_dist, angle_dist_params = fit_distribution(filtered_angles, floc=0, objective_name='angles', verbose=verbose)
+        angle_dist, angle_dist_params = fit_distribution(filtered_angles, floc=0, objective_name='angles',
+                                                         verbose=verbose)
 
         ratio_curving_trajectories = np.sort(np.array(ratio_curving_trajectories))
         ratio_curving_trajectories_filtered = ratio_curving_trajectories[
-                          int(lower_quantile * len(ratio_curving_trajectories)):int(upper_quantile * len(ratio_curving_trajectories))]
+                                              int(lower_quantile * len(ratio_curving_trajectories)):int(
+                                                  upper_quantile * len(ratio_curving_trajectories))]
 
-        curving_ratio_dist, curving_ratio_dist_params = fit_distribution(ratio_curving_trajectories_filtered, objective_name='curving ratio', verbose=verbose)
+        curving_ratio_dist, curving_ratio_dist_params = fit_distribution(ratio_curving_trajectories_filtered,
+                                                                         objective_name='curving ratio',
+                                                                         verbose=verbose)
 
         return angle_dist, angle_dist_params, curving_ratio_dist, curving_ratio_dist_params
 
+
 def fit_distribution(sample_for_fitting, floc=None, objective_name='not known', distributions=None, verbose=False):
-    if distributions==None:
+    if distributions is None:
         distributions = [cauchy, norm]
 
     distribution_fitting_log = [None] * len(distributions)
@@ -467,6 +470,7 @@ def fit_distribution(sample_for_fitting, floc=None, objective_name='not known', 
 
     return distributions[p], best_dist_params
 
+
 def angle_between(v1, v2):
     """ Returns the angle in radians between vectors 'v1' and 'v2'    """
     cosang1 = np.dot((1, 0), v1)
@@ -475,6 +479,7 @@ def angle_between(v1, v2):
     cosang2 = np.dot((1, 0), v2)
     sinang2 = la.norm(np.cross((1, 0), v2))
     return np.arctan2(sinang1, cosang1) - np.arctan2(sinang2, cosang2)
+
 
 def calculate_velocity_noise(distances):
     var = []
