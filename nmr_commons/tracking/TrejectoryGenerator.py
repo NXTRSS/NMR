@@ -137,6 +137,70 @@ class TrajectoryGenerator:
         res = self.generate_trajectories(all_peaks)
         return res
 
+    def generate_trajectories(self, peak_list, verbose=False):
+        ksi = self.draw_ksi()
+
+        x_peak_list = peak_list.get_column(0)
+        y_peak_list = peak_list.get_column(1)
+        x_limits = (min(x_peak_list), max(x_peak_list))
+        y_limits = (min(y_peak_list), max(y_peak_list))
+        moving_idx = self.draw_moving_peaks(len(peak_list))
+        if verbose:
+            print('The number of moving trajectories will be {} out of {}.'.format(sum(moving_idx), sum(peak_list)))
+        trajectory_list = self.state_equation(x_limits, y_limits, moving_idx, peak_list)
+
+        return trajectory_list
+
+    def state_equation(self, x_limits, y_limits, is_moving_list, peak_list):
+        minx, maxx = x_limits
+        miny, maxy = y_limits
+
+        trajectory_list = TrajectoryList()
+        for peak, is_moving in zip(peak_list, is_moving_list):
+
+            trajectory = Trajectory()
+            trajectory.flag = peak[-1] == 1
+            if is_moving:
+                curving = 0
+                for lev in range(self.levels_number):
+                    if lev == 0:
+                        trajectory.add_point(tuple(peak[:-1]))
+                        theta = self.draw_velocity_angle()
+                        r = self.draw_velocity()
+                        curving = self.angle_dist.rvs(loc=self.angle_dist_params[0], scale=self.angle_dist_params[1])
+                    else:
+                        e = self.draw_noise()
+                        rt = r * (1 + self.draw_velocity_noise() * r)
+                        if curving:
+                            theta += curving
+                        mi = [rt * math.cos(theta) * (maxx - minx), rt * math.sin(theta) * (maxy - miny)]
+                        last_point = trajectory.return_element(lev - 1)
+                        point = tuple([last_point[0] + mi[0] + e[0] * (maxx - minx),
+                                       last_point[1] + mi[1] + e[1] * (maxy - miny)])
+                        trajectory.add_point(point)
+            else:
+                x0 = peak[:-1]
+                for lev in range(self.levels_number):
+                    e = self.draw_noise()
+                    ex = e[0] * (maxx - minx)
+                    ey = e[1] * (maxy - miny)
+                    point = tuple([a + b for a, b in zip(x0, [ex, ey])])
+                    trajectory.add_point(point)
+
+            trajectory_list.add_trajectory(trajectory)
+
+        return trajectory_list
+
+    def draw_ksi(self):
+        return np.random.gamma(self.k0, self.ksi0)
+
+    def draw_moving_peaks(self, total_num_peaks):
+        num_moving_peaks = np.random.poisson(lam=total_num_peaks * self.lam)
+        moving_ids = np.random.choice(total_num_peaks, min(num_moving_peaks, total_num_peaks), False)
+        moving_idx = np.zeros(total_num_peaks)
+        moving_idx[moving_ids] = 1
+        return moving_idx
+
     def get_list_of_trajectory_list(self, verbose=False):
         if self.path_list is None:
             self.path_list = get_path_list()

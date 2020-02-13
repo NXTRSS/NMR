@@ -14,3 +14,7 @@ class Settings:
                          '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence10/Tracking list seq10.csv',
                          '/Users/zl449wx/projects/NMR-new/NMR/Datasets/Tracking/sequence11/Tracking list seq11.csv'
                          ]
+
+    CHEMICAL_SHIFT_GENERATOR_PATH = '/Users/zl449wx/projects/NMR-new/NMR/Datasets/BMRBChemicalShiftStats.ddb'
+
+    BMRB_ROOT = '/Users/zl449wx/projects/NMR-new/NMR/Datasets/BMRB_Database/bmrb_entries/'

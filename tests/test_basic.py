@@ -321,6 +321,10 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
         self.assertEqual(self.trajectory_generator.calculate_angle_noise()[1:4:2],
                          ((0, 0.27798029864914786), (0.2511510901216049, 0.030825044097811248)))
 
+    def test_generate_trajectories(self):
+        self.trajectory_generator.generate(42)
+        self.assertEqual(1, 1)
+
 
 if __name__ == '__main__':
     unittest.main()
