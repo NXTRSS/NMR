@@ -14,7 +14,7 @@ class ChemicalShiftGenerator:
         self.aminoAcidDistributions = []
 
         if isinstance(database, str):
-            self.aminoAcidDistributions = pickle.load(open(database, "rb"))
+            self.aminoAcidDistributions = pickle.load(open(database, "rb"), encoding='latin1')
         else:
             self.generateStatData(database)
 
