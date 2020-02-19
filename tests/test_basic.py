@@ -1,5 +1,6 @@
 import unittest
 from numpy.testing import assert_almost_equal
+import os
 
 from nmr_commons.tracking.Trajectory import Trajectory
 from nmr_commons.tracking.TrajectoryList import TrajectoryList
@@ -312,17 +313,30 @@ class TestTrajectoryGeneratorMethods(unittest.TestCase):
     def test_calculate_velocity_small(self):
         self.assertEqual(self.trajectory_generator_small.calculate_velocity_parameters(),
                          (0.017771681084448016, 3.741816966884609, 0.005033442874726042))
-
-    def test_calculate_angle_noise_old(self):
-        self.assertEqual(self.trajectory_generator.calculate_angle_noise_old()[1],
-                         (0, 0.019123607543297214))
+    #
+    # def test_calculate_angle_noise_old(self):
+    #     self.assertEqual(self.trajectory_generator.calculate_angle_noise_old()[1],
+    #                      (0, 0.019123607543297214))
 
     def test_calculate_angle_noise(self):
         self.assertEqual(self.trajectory_generator.calculate_angle_noise()[1:4:2],
                          ((0, 0.27798029864914786), (0.2511510901216049, 0.030825044097811248)))
 
     def test_generate_trajectories(self):
-        self.trajectory_generator.generate(42)
+        # path = Settings.BMRB_ROOT
+        #
+        # files = []
+        # # r=root, d=directories, f = files
+        # for r, d, f in os.walk(path):
+        #     for file in f:
+        #         if '.str' in file:
+        #             number = ''.join([n for n in file if n.isdigit()])
+        #             files.append(int(number))
+        # files.sort()
+        # for idx in files:
+        #     self.trajectory_generator.generate(idx)
+        self.trajectory_generator.train()
+        self.trajectory_generator.generate(4242)
         self.assertEqual(1, 1)
 
 

@@ -34,9 +34,8 @@ class TrajectoryGenerator:
 
     ####
     # Constructor
-    def __init__(self, number_of_levels=None, path_list=None, list_of_trajectory_list=None,
+    def __init__(self, path_list=None, list_of_trajectory_list=None,
                  curving_lim=0.12, k0=5, ksi0=0.0002):
-        self.levels_number = number_of_levels
         self.lam = 0  # ratio of moving trajectories vs all trajectories in trajectories lists
         self.epsilon = 0
         self.mi = [0, 0]
@@ -98,7 +97,7 @@ class TrajectoryGenerator:
         # self.k0 = 5
         # self.ksi0 = 0.0002
 
-    def generate(self, bmrb_id, peak_gen_params=None, extra_shifts_distr=None):
+    def generate(self, bmrb_id, number_of_levels=10, peak_gen_params=None, extra_shifts_distr=None):
         """
 
         Args:
@@ -113,7 +112,11 @@ class TrajectoryGenerator:
         else:
             peak_gen_params = peak_gen_params.copy()
 
-        shifts = BMRBDatabase.parse_bmrb_file('{}bmr{}.str'.format(Settings.BMRB_ROOT, bmrb_id))
+        try:
+            shifts = BMRBDatabase.parse_bmrb_file('{}bmr{}.str'.format(Settings.BMRB_ROOT, bmrb_id))
+        except:
+            print('''program couldn't create shifts in {} bmrb id '''.format(bmrb_id))
+            return 0
 
         temp_params = PeakListGenParams().incomplete(peak_gen_params.incompleteProb)
         peaks, _, ideal_num_peaks = PLGen.generate_peak_list(shifts, Spectrum.NHSQC, temp_params, verbose=False)
@@ -121,7 +124,11 @@ class TrajectoryGenerator:
 
         peak_gen_params.incomplete(1)
         if self.chem_shift_gen is None:
-            self.chem_shift_gen = ChemicalShiftGenerator(Settings.CHEMICAL_SHIFT_GENERATOR_PATH)
+            try:
+                self.chem_shift_gen = ChemicalShiftGenerator(Settings.CHEMICAL_SHIFT_GENERATOR_PATH)
+            except:
+                print('''program couldn't create ChemicalShiftGenerator in {} bmrb id '''.format(bmrb_id))
+                return 0
 
         for amino_acid in shifts.sequence:
             if amino_acid.getOneLetterCode() == 'U':
@@ -132,12 +139,14 @@ class TrajectoryGenerator:
                                                      verbose=False)
         extra_peaks.set_responses(0)
         all_peaks = PeakList.get_concatenation(peaks, extra_peaks)
+        # if ideal_num_peaks > 0 or len(all_peaks) > 0:
+        #     print('''The non-zero peaks program get in {} bmrb id'''.format(bmrb_id))
         print('\tPeaks: {:>4} ({:>6.2f}% of original)'.format(len(all_peaks), 100. * len(all_peaks) / ideal_num_peaks),
               end=' ')
-        res = self.generate_trajectories(all_peaks)
+        res = self.generate_trajectories(all_peaks, number_of_levels)
         return res
 
-    def generate_trajectories(self, peak_list, verbose=False):
+    def generate_trajectories(self, peak_list, number_of_levels, verbose=False):
         ksi = self.draw_ksi()
 
         x_peak_list = peak_list.get_column(0)
@@ -147,11 +156,11 @@ class TrajectoryGenerator:
         moving_idx = self.draw_moving_peaks(len(peak_list))
         if verbose:
             print('The number of moving trajectories will be {} out of {}.'.format(sum(moving_idx), sum(peak_list)))
-        trajectory_list = self.state_equation(x_limits, y_limits, moving_idx, peak_list)
+        trajectory_list = self.state_equation(x_limits, y_limits, moving_idx, peak_list, number_of_levels)
 
         return trajectory_list
 
-    def state_equation(self, x_limits, y_limits, is_moving_list, peak_list):
+    def state_equation(self, x_limits, y_limits, is_moving_list, peak_list, number_of_levels):
         minx, maxx = x_limits
         miny, maxy = y_limits
 
@@ -162,10 +171,10 @@ class TrajectoryGenerator:
             trajectory.flag = peak[-1] == 1
             if is_moving:
                 curving = 0
-                for lev in range(self.levels_number):
+                for lev in range(number_of_levels):
                     if lev == 0:
                         trajectory.add_point(tuple(peak[:-1]))
-                        theta = self.draw_velocity_angle()
+                        theta = draw_velocity_angle()
                         r = self.draw_velocity()
                         curving = self.angle_dist.rvs(loc=self.angle_dist_params[0], scale=self.angle_dist_params[1])
                     else:
@@ -180,7 +189,7 @@ class TrajectoryGenerator:
                         trajectory.add_point(point)
             else:
                 x0 = peak[:-1]
-                for lev in range(self.levels_number):
+                for lev in range(number_of_levels):
                     e = self.draw_noise()
                     ex = e[0] * (maxx - minx)
                     ey = e[1] * (maxy - miny)
@@ -470,6 +479,15 @@ class TrajectoryGenerator:
 
         return angle_dist, angle_dist_params, curving_ratio_dist, curving_ratio_dist_params
 
+    def draw_noise(self):
+        return np.random.multivariate_normal([0, 0], self.Ibeta)
+
+    def draw_velocity(self):
+        return np.random.gamma(2, self.ksi)
+
+    def draw_velocity_noise(self):
+        return np.random.normal(0, np.sqrt(self.sigma))
+
 
 def fit_distribution(sample_for_fitting, floc=None, objective_name='not known', distributions=None, verbose=False):
     if distributions is None:
@@ -553,6 +571,11 @@ def calculate_velocity_noise(distances):
         var.append(np.var(norm_trajectory_distances))
     return var
 
+def draw_velocity_angle():
+    theta = np.random.uniform(0, 2.0 * np.pi)
+    # plt.scatter(math.cos(teta), math.sin(teta))
+    # plt.pause(0.01)
+    return theta
 
 def get_path_list(general_path=None):
     if general_path is None:
